@@ -1474,6 +1474,111 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/v1/fleets/{id}/pause/:
+    post:
+      operationId: v1_fleets_pause_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this fleet.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FleetRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/FleetRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FleetRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Fleet'
+          description: ''
+  /api/v1/fleets/{id}/resume/:
+    post:
+      operationId: v1_fleets_resume_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this fleet.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FleetRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/FleetRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FleetRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Fleet'
+          description: ''
+  /api/v1/fleets/{id}/teardown/:
+    post:
+      operationId: v1_fleets_teardown_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this fleet.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FleetRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/FleetRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FleetRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Fleet'
+          description: ''
   /api/v1/system/health/:
     get:
       operationId: v1_system_health_retrieve
@@ -1995,6 +2100,11 @@ components:
         controller_target:
           type: string
           format: uuid
+        model_code:
+          type: string
+          description: Model every device in this fleet gets. Phase 2 blueprint support
+            will add per-device mixing.
+          maxLength: 32
         state:
           allOf:
           - $ref: '#/components/schemas/FleetStateEnum'
@@ -2005,6 +2115,18 @@ components:
           minimum: 0
           format: int64
         ramp_spec: {}
+        auto_adopt:
+          type: boolean
+        retired_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        device_states:
+          type: object
+          additionalProperties:
+            type: integer
+          readOnly: true
         created_at:
           type: string
           format: date-time
@@ -2016,8 +2138,10 @@ components:
       required:
       - controller_target
       - created_at
+      - device_states
       - id
       - name
+      - retired_at
       - state
       - updated_at
     FleetRequest:
@@ -2034,12 +2158,20 @@ components:
         controller_target:
           type: string
           format: uuid
+        model_code:
+          type: string
+          minLength: 1
+          description: Model every device in this fleet gets. Phase 2 blueprint support
+            will add per-device mixing.
+          maxLength: 32
         device_count:
           type: integer
           maximum: 9223372036854775807
           minimum: 0
           format: int64
         ramp_spec: {}
+        auto_adopt:
+          type: boolean
       required:
       - controller_target
       - name
@@ -2454,12 +2586,20 @@ components:
         controller_target:
           type: string
           format: uuid
+        model_code:
+          type: string
+          minLength: 1
+          description: Model every device in this fleet gets. Phase 2 blueprint support
+            will add per-device mixing.
+          maxLength: 32
         device_count:
           type: integer
           maximum: 9223372036854775807
           minimum: 0
           format: int64
         ramp_spec: {}
+        auto_adopt:
+          type: boolean
     PatchedVirtualDeviceRequest:
       type: object
       properties:

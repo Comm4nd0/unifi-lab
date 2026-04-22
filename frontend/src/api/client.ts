@@ -143,6 +143,22 @@ export type DeviceTemplate = {
   device_family: "ap" | "switch" | "gateway" | "other";
 };
 
+export type Fleet = {
+  id: string;
+  name: string;
+  controller_target: string;
+  blueprint: string | null;
+  model_code: string;
+  state: string;
+  device_count: number;
+  ramp_spec: Record<string, unknown>;
+  auto_adopt: boolean;
+  retired_at: string | null;
+  device_states: Record<string, number>;
+  created_at: string;
+  updated_at: string;
+};
+
 export type Paginated<T> = {
   count: number;
   next: string | null;
@@ -173,5 +189,20 @@ export const endpoints = {
   },
   templates: {
     list: () => api.get<Paginated<DeviceTemplate>>("/api/v1/templates/"),
+  },
+  fleets: {
+    list: () => api.get<Paginated<Fleet>>("/api/v1/fleets/"),
+    get: (id: string) => api.get<Fleet>(`/api/v1/fleets/${id}/`),
+    create: (body: {
+      name: string;
+      controller_target: string;
+      model_code: string;
+      device_count: number;
+      auto_adopt?: boolean;
+    }) => api.post<Fleet>("/api/v1/fleets/", body),
+    pause: (id: string) => api.post<Fleet>(`/api/v1/fleets/${id}/pause/`),
+    resume: (id: string) => api.post<Fleet>(`/api/v1/fleets/${id}/resume/`),
+    teardown: (id: string) => api.post<Fleet>(`/api/v1/fleets/${id}/teardown/`),
+    delete: (id: string) => api.delete<void>(`/api/v1/fleets/${id}/`),
   },
 };

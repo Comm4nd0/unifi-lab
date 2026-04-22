@@ -36,9 +36,16 @@ class Fleet(BaseModel):
         on_delete=models.PROTECT,
         related_name="fleets",
     )
+    model_code = models.CharField(
+        max_length=32,
+        default="USW24P250",
+        help_text="Model every device in this fleet gets. Phase 2 blueprint support will add per-device mixing.",
+    )
     state = models.CharField(max_length=32, choices=STATE_CHOICES, default=STATE_CREATING)
     device_count = models.PositiveIntegerField(default=0)
     ramp_spec = models.JSONField(default=dict, blank=True)
+    auto_adopt = models.BooleanField(default=False)
+    retired_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ("-created_at",)
