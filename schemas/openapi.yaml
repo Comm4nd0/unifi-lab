@@ -1214,6 +1214,42 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/v1/devices/{id}/force-inform/:
+    post:
+      operationId: v1_devices_force_inform_create
+      description: Ask the supervisor to immediately send a heartbeat for this device.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this virtual device.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VirtualDeviceRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/VirtualDeviceRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/VirtualDeviceRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VirtualDevice'
+          description: ''
   /api/v1/devices/{id}/inform-log/:
     get:
       operationId: v1_devices_inform_log_retrieve

@@ -35,6 +35,13 @@ export function DeviceDetailPage() {
             <Link to="/devices" className="text-sm text-slate-400 hover:text-white">
               ← All devices
             </Link>
+            <Link
+              to="/devices/$id/inform"
+              params={{ id: d.id }}
+              className="inline-flex h-8 items-center rounded-md bg-slate-800 px-3 text-sm text-slate-100 hover:bg-slate-700 border border-slate-700"
+            >
+              Inform Inspector →
+            </Link>
             <Button
               variant="danger"
               size="sm"
@@ -111,7 +118,7 @@ export function DeviceDetailPage() {
         </h3>
         <EmptyState
           title="No exchanges yet"
-          hint="Inform Inspector arrives in the next slice, once the WebSocket consumer lands."
+          hint="Open the Inform Inspector to tail live traffic once the engine starts generating it."
         />
       </section>
     </>

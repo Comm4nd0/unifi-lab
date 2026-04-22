@@ -168,6 +168,8 @@ export const endpoints = {
     create: (body: { model_code: string; firmware_version?: string; controller_target?: string }) =>
       api.post<VirtualDevice>("/api/v1/devices/", body),
     delete: (id: string) => api.delete<void>(`/api/v1/devices/${id}/`),
+    forceInform: (id: string) =>
+      api.post<{ accepted: boolean; device_id: string }>(`/api/v1/devices/${id}/force-inform/`),
   },
   templates: {
     list: () => api.get<Paginated<DeviceTemplate>>("/api/v1/templates/"),

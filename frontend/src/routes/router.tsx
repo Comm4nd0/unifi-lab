@@ -15,6 +15,7 @@ import { ControllersPage } from "./ControllersPage";
 import { ControllerDetailPage } from "./ControllerDetailPage";
 import { DevicesPage } from "./DevicesPage";
 import { DeviceDetailPage } from "./DeviceDetailPage";
+import { InformInspectorPage } from "./InformInspectorPage";
 
 const rootRoute = createRootRoute({
   component: () => <Outlet />,
@@ -72,6 +73,12 @@ const deviceDetailRoute = createRoute({
   component: DeviceDetailPage,
 });
 
+const deviceInformRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/devices/$id/inform",
+  component: InformInspectorPage,
+});
+
 const notFoundRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "*",
@@ -86,6 +93,7 @@ const routeTree = rootRoute.addChildren([
     controllerDetailRoute,
     devicesRoute,
     deviceDetailRoute,
+    deviceInformRoute,
   ]),
   notFoundRoute,
 ]);

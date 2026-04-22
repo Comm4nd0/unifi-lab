@@ -1,10 +1,12 @@
 from __future__ import annotations
 
-from rest_framework import viewsets
+from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.request import Request
 from rest_framework.response import Response
+
+from apps.common.worker_commands import CHANNEL_DEVICES, publish_worker_command
 
 from .models import VirtualDevice
 from .serializers import (
@@ -30,6 +32,12 @@ class VirtualDeviceViewSet(viewsets.ModelViewSet):
             fleet_id=str(data["fleet"].id) if data.get("fleet") else None,
         )
         serializer.instance = device
+        # Tell the supervisor there's a new pending device to spawn.
+        publish_worker_command(
+            CHANNEL_DEVICES,
+            action="spawn",
+            device_id=str(device.id),
+        )
 
     @action(detail=True, url_path="inform-log", methods=["get"])
     def inform_log(self, request: Request, pk: str | None = None) -> Response:
@@ -39,3 +47,17 @@ class VirtualDeviceViewSet(viewsets.ModelViewSet):
         page = paginator.paginate_queryset(qs, request, view=self)
         serializer = InformExchangeSerializer(page, many=True)
         return paginator.get_paginated_response(serializer.data)
+
+    @action(detail=True, url_path="force-inform", methods=["post"])
+    def force_inform(self, request: Request, pk: str | None = None) -> Response:
+        """Ask the supervisor to immediately send a heartbeat for this device."""
+        device = self.get_object()
+        publish_worker_command(
+            CHANNEL_DEVICES,
+            action="force_inform",
+            device_id=str(device.id),
+        )
+        return Response(
+            {"accepted": True, "device_id": str(device.id)},
+            status=status.HTTP_202_ACCEPTED,
+        )
