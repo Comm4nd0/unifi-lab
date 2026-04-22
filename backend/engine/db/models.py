@@ -30,6 +30,7 @@ class VirtualDevice(Base):
     serial_number: Mapped[str] = mapped_column(String(64))
     model_code: Mapped[str] = mapped_column(String(32))
     firmware_version: Mapped[str] = mapped_column(String(32))
+    hostname: Mapped[str] = mapped_column(String(64))
     state: Mapped[str] = mapped_column(String(32))
     inform_key: Mapped[str] = mapped_column(Text)
     inform_key_rotated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

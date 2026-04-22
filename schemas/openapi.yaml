@@ -2195,6 +2195,7 @@ components:
           format: uuid
         model_code:
           type: string
+          default: ''
           description: Model every device in this fleet gets. Phase 2 blueprint support
             will add per-device mixing.
           maxLength: 32
@@ -2207,6 +2208,7 @@ components:
           maximum: 9223372036854775807
           minimum: 0
           format: int64
+          default: 0
         ramp_spec: {}
         auto_adopt:
           type: boolean
@@ -2254,6 +2256,7 @@ components:
         model_code:
           type: string
           minLength: 1
+          default: ''
           description: Model every device in this fleet gets. Phase 2 blueprint support
             will add per-device mixing.
           maxLength: 32
@@ -2262,6 +2265,7 @@ components:
           maximum: 9223372036854775807
           minimum: 0
           format: int64
+          default: 0
         ramp_spec: {}
         auto_adopt:
           type: boolean
@@ -2682,6 +2686,7 @@ components:
         model_code:
           type: string
           minLength: 1
+          default: ''
           description: Model every device in this fleet gets. Phase 2 blueprint support
             will add per-device mixing.
           maxLength: 32
@@ -2690,6 +2695,7 @@ components:
           maximum: 9223372036854775807
           minimum: 0
           format: int64
+          default: 0
         ramp_spec: {}
         auto_adopt:
           type: boolean

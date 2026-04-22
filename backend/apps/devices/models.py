@@ -36,6 +36,7 @@ class VirtualDevice(BaseModel):
     serial_number = models.CharField(max_length=64, unique=True, db_index=True)
     model_code = models.CharField(max_length=32)
     firmware_version = models.CharField(max_length=32, blank=True, default="")
+    hostname = models.CharField(max_length=64, blank=True, default="")
 
     state = models.CharField(max_length=32, choices=STATE_CHOICES, default=STATE_PENDING)
     inform_key = EncryptedTextField(blank=True, default="")

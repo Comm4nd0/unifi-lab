@@ -137,6 +137,7 @@ export type VirtualDevice = {
   serial_number: string;
   model_code: string;
   firmware_version: string;
+  hostname: string;
   state: string;
   controller_target: string | null;
   fleet: string | null;
@@ -264,9 +265,10 @@ export const endpoints = {
     create: (body: {
       name: string;
       controller_target: string;
-      model_code: string;
-      device_count: number;
+      model_code?: string;
+      device_count?: number;
       auto_adopt?: boolean;
+      blueprint?: string;
     }) => api.post<Fleet>("/api/v1/fleets/", body),
     pause: (id: string) => api.post<Fleet>(`/api/v1/fleets/${id}/pause/`),
     resume: (id: string) => api.post<Fleet>(`/api/v1/fleets/${id}/resume/`),

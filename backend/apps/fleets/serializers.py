@@ -33,6 +33,27 @@ class FleetSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         )
+        # When a blueprint is supplied the device set (and model mix) comes
+        # from there — both fields become optional on input.
+        extra_kwargs = {
+            "model_code": {"required": False, "default": ""},
+            "device_count": {"required": False, "default": 0},
+        }
+
+    def validate(self, attrs):  # type: ignore[no-untyped-def]
+        blueprint = attrs.get("blueprint") or getattr(self.instance, "blueprint", None)
+        model_code = attrs.get("model_code") or ""
+        device_count = attrs.get("device_count", 0)
+        if blueprint is None and (not model_code or device_count < 1):
+            raise serializers.ValidationError(
+                {
+                    "model_code": (
+                        "Either 'blueprint' or both 'model_code' and a positive "
+                        "'device_count' must be provided."
+                    ),
+                }
+            )
+        return attrs
 
     def get_device_states(self, obj: Fleet) -> dict[str, int]:
         counts: dict[str, int] = {}

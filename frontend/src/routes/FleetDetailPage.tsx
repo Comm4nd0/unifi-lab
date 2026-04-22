@@ -41,6 +41,7 @@ export function FleetDetailPage() {
   const f = fleet.data;
   const ctrl = controllers.data?.results.find((c) => c.id === f.controller_target);
   const related = devices.data?.results.filter((d) => d.fleet === f.id) ?? [];
+  const blueprintIdForLink = f.blueprint;
   const stateEntries = Object.entries(f.device_states ?? {});
   const busy = pause.isPending || resume.isPending || tear.isPending;
 
@@ -100,8 +101,20 @@ export function FleetDetailPage() {
                 <span className="text-slate-600">—</span>
               )}
             </dd>
-            <dt className="text-slate-500">Model</dt>
-            <dd>{f.model_code}</dd>
+            <dt className="text-slate-500">Source</dt>
+            <dd>
+              {blueprintIdForLink ? (
+                <Link
+                  to="/blueprints/$id"
+                  params={{ id: blueprintIdForLink }}
+                  className="text-indigo-400 hover:text-indigo-300"
+                >
+                  Blueprint
+                </Link>
+              ) : (
+                <span className="font-mono text-xs">{f.model_code} (simple)</span>
+              )}
+            </dd>
             <dt className="text-slate-500">Device count</dt>
             <dd className="font-mono text-xs">{f.device_count}</dd>
             <dt className="text-slate-500">Auto-adopt</dt>
@@ -150,7 +163,9 @@ export function FleetDetailPage() {
             <table className="w-full text-sm">
               <thead className="bg-slate-900/60 text-xs uppercase text-slate-400">
                 <tr>
+                  <th className="px-4 py-2 text-left font-medium">Hostname</th>
                   <th className="px-4 py-2 text-left font-medium">MAC</th>
+                  <th className="px-4 py-2 text-left font-medium">Model</th>
                   <th className="px-4 py-2 text-left font-medium">State</th>
                   <th className="px-4 py-2 text-left font-medium">Last heartbeat</th>
                 </tr>
@@ -158,11 +173,15 @@ export function FleetDetailPage() {
               <tbody className="divide-y divide-slate-800">
                 {related.map((d) => (
                   <tr key={d.id}>
+                    <td className="px-4 py-2 text-slate-300">
+                      {d.hostname || <span className="text-slate-600">—</span>}
+                    </td>
                     <td className="px-4 py-2 font-mono text-xs">
                       <Link to="/devices/$id" params={{ id: d.id }} className="hover:text-white">
                         {d.mac_address}
                       </Link>
                     </td>
+                    <td className="px-4 py-2 font-mono text-xs text-slate-400">{d.model_code}</td>
                     <td className="px-4 py-2">
                       <StateChip state={d.state} />
                     </td>
