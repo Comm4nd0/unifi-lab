@@ -14,6 +14,7 @@ Type drift is not enforced here — Django and SQLAlchemy represent the
 same underlying column slightly differently (e.g., TextField vs String,
 UUIDField vs UUID), and an overly-strict match creates false positives.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -44,6 +45,7 @@ def _sqlalchemy_columns(model: type[DeclarativeBase]) -> dict[str, bool]:
 # Map SQLAlchemy mirror classes to their owning Django (app_label, model_name).
 MIRROR_MAP = [
     ("devices", "InformExchange"),
+    ("devices", "VirtualDevice"),
 ]
 
 
@@ -52,9 +54,7 @@ def test_no_column_drift(app_label: str, model_name: str) -> None:
     django_model = django_apps.get_model(app_label, model_name)
 
     sqlalchemy_model = next(
-        mapper.class_
-        for mapper in Base.registry.mappers
-        if mapper.class_.__name__ == model_name
+        mapper.class_ for mapper in Base.registry.mappers if mapper.class_.__name__ == model_name
     )
 
     django_cols = _django_columns(django_model)
@@ -75,6 +75,4 @@ def test_no_column_drift(app_label: str, model_name: str) -> None:
         f"SQLAlchemy mirror for {model_name} has stale columns not in Django: "
         f"{sorted(extra_in_sqla)}"
     )
-    assert not nullability_mismatch, (
-        f"Nullability mismatch on {model_name}: {nullability_mismatch}"
-    )
+    assert not nullability_mismatch, f"Nullability mismatch on {model_name}: {nullability_mismatch}"

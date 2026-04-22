@@ -1,7 +1,11 @@
 """Worker-side SQLAlchemy models.
 
-Must match the Django migrations on the corresponding tables. A drift
-test in ``tests/contract/`` compares the two at CI time.
+Must match the Django migrations on the corresponding tables. The drift
+test in ``tests/contract/test_orm_drift.py`` compares the two at CI time.
+
+``VirtualDevice`` is read-only from the worker's perspective (Django writes);
+``InformExchange`` is fully worker-owned. We don't mirror every Django field
+— only what the engine actually reads or writes.
 """
 
 from __future__ import annotations
@@ -9,13 +13,40 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String
+from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
 class Base(DeclarativeBase):
     pass
+
+
+class VirtualDevice(Base):
+    __tablename__ = "devices_virtualdevice"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    mac_address: Mapped[str] = mapped_column(String(17))
+    serial_number: Mapped[str] = mapped_column(String(64))
+    model_code: Mapped[str] = mapped_column(String(32))
+    firmware_version: Mapped[str] = mapped_column(String(32))
+    state: Mapped[str] = mapped_column(String(32))
+    inform_key: Mapped[str] = mapped_column(Text)
+    inform_key_rotated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    controller_target_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("controllers_controllertarget.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    fleet_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("fleets_fleet.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    last_heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_config_applied_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
 class InformExchange(Base):
@@ -31,3 +62,9 @@ class InformExchange(Base):
     exchanged_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+__all__ = ["STATE_PENDING", "Base", "InformExchange", "VirtualDevice"]
+
+STATE_PENDING = "pending"
+_ = Boolean  # keep import for future mirrors (e.g. ControllerTarget.verify_tls)

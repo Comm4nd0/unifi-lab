@@ -1,11 +1,13 @@
 """Supervisor — orchestrates many VirtualDevice tasks under one asyncio loop.
 
-Two sources of work:
+Three sources of work:
 
-1. Startup poll — on boot, we select every VirtualDevice in ``pending`` state
-   and spawn a task for it.
-2. Live commands — while running, we subscribe to Redis ``worker:commands:*``
+1. Startup poll — on boot, select every VirtualDevice in ``pending`` state
+   via SQLAlchemy async and spawn a task per row. Covers devices that were
+   created while the worker was offline.
+2. Live commands — while running, subscribe to Redis ``worker:commands:*``
    and react to ``spawn`` / ``force_inform`` / ``despawn`` envelopes.
+3. Shutdown — cancel every running device task cleanly on SIGTERM/SIGINT.
 
 In Phase 0 the spawned tasks just log a stub loop — no bytes are
 transmitted until ``engine.protocol.codec`` is real.
@@ -14,23 +16,48 @@ transmitted until ``engine.protocol.codec`` is real.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncEngine
+
 from .config import EngineConfig
+from .db.models import STATE_PENDING, VirtualDevice
+from .db.session import make_engine, make_sessionmaker
 from .redis_commands import CHANNEL_DEVICES, subscribe_worker_commands
 
 log = logging.getLogger("uvl.engine.supervisor")
 
 
 class Supervisor:
-    def __init__(self, cfg: EngineConfig) -> None:
+    def __init__(
+        self,
+        cfg: EngineConfig,
+        *,
+        engine: AsyncEngine | None = None,
+    ) -> None:
         self.cfg = cfg
         self._tasks: dict[str, asyncio.Task[None]] = {}
         self._command_task: asyncio.Task[None] | None = None
         self._stop = asyncio.Event()
+        self._engine: AsyncEngine | None = engine
+        self._sessionmaker = make_sessionmaker(engine) if engine is not None else None
 
     async def start(self) -> None:
         log.info("supervisor.start", extra={"redis": self.cfg.redis_url.split("@")[-1]})
+        if self._engine is None:
+            self._engine = make_engine(self.cfg.database_url)
+            self._sessionmaker = make_sessionmaker(self._engine)
+        try:
+            pending = await self._load_pending_devices()
+        except Exception:
+            log.exception("supervisor.startup_poll.failed")
+            pending = []
+        for device_id in pending:
+            await self._spawn_device(device_id)
+        log.info("supervisor.startup_poll.complete", extra={"spawned": len(pending)})
+
         self._command_task = asyncio.create_task(
             self._consume_commands(), name="supervisor.commands"
         )
@@ -39,18 +66,25 @@ class Supervisor:
         self._stop.set()
         if self._command_task:
             self._command_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._command_task
-            except asyncio.CancelledError:
-                pass
-        for mac, task in list(self._tasks.items()):
+        for device_id, task in list(self._tasks.items()):
             task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await task
-            except asyncio.CancelledError:
-                pass
-            log.info("supervisor.device.cancelled", extra={"mac": mac})
+            log.info("supervisor.device.cancelled", extra={"device_id": device_id})
         self._tasks.clear()
+        if self._engine is not None:
+            await self._engine.dispose()
+            self._engine = None
+
+    async def _load_pending_devices(self) -> list[str]:
+        assert self._sessionmaker is not None
+        async with self._sessionmaker() as session:  # type: AsyncSession
+            result = await session.execute(
+                select(VirtualDevice.id).where(VirtualDevice.state == STATE_PENDING)
+            )
+            return [str(row) for (row,) in result.all()]
 
     async def _consume_commands(self) -> None:
         try:
