@@ -141,6 +141,22 @@ function CreateFleetForm({
   const [modelCode, setModelCode] = useState("USW24P250");
   const [deviceCount, setDeviceCount] = useState(5);
   const [autoAdopt, setAutoAdopt] = useState(false);
+  const [rampMode, setRampMode] = useState<"all-at-once" | "linear-1" | "linear-5" | "linear-10">(
+    "all-at-once",
+  );
+
+  const rampSpec = (() => {
+    switch (rampMode) {
+      case "linear-1":
+        return { mode: "linear", devices_per_sec: 1 };
+      case "linear-5":
+        return { mode: "linear", devices_per_sec: 5 };
+      case "linear-10":
+        return { mode: "linear", devices_per_sec: 10 };
+      default:
+        return { mode: "all-at-once" };
+    }
+  })();
 
   const create = useMutation({
     mutationFn: () =>
@@ -151,6 +167,7 @@ function CreateFleetForm({
               controller_target: controller,
               blueprint: blueprintId,
               auto_adopt: autoAdopt,
+              ramp_spec: rampSpec,
             }
           : {
               name,
@@ -158,6 +175,7 @@ function CreateFleetForm({
               model_code: modelCode,
               device_count: deviceCount,
               auto_adopt: autoAdopt,
+              ramp_spec: rampSpec,
             },
       ),
     onSuccess: onCreated,
@@ -261,6 +279,16 @@ function CreateFleetForm({
             </div>
           </>
         )}
+
+        <div className="flex flex-col gap-1.5 md:col-span-2">
+          <Label>Ramp</Label>
+          <Select value={rampMode} onChange={(e) => setRampMode(e.target.value as typeof rampMode)}>
+            <option value="all-at-once">All at once</option>
+            <option value="linear-1">Linear — 1 device / sec</option>
+            <option value="linear-5">Linear — 5 devices / sec</option>
+            <option value="linear-10">Linear — 10 devices / sec</option>
+          </Select>
+        </div>
 
         <label className="flex items-center gap-2 text-sm text-slate-300 md:col-span-2">
           <input

@@ -269,6 +269,7 @@ export const endpoints = {
       device_count?: number;
       auto_adopt?: boolean;
       blueprint?: string;
+      ramp_spec?: Record<string, unknown>;
     }) => api.post<Fleet>("/api/v1/fleets/", body),
     pause: (id: string) => api.post<Fleet>(`/api/v1/fleets/${id}/pause/`),
     resume: (id: string) => api.post<Fleet>(`/api/v1/fleets/${id}/resume/`),

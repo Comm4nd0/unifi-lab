@@ -4,10 +4,10 @@ Splits fleet lifecycle across the process boundary per
 ``Components/23 - Fleet Manager``:
 
 - Django (this module) — validation, creating Fleet + VirtualDevice rows,
-  publishing work to the worker via ``worker_commands``.
-- Worker (``engine.supervisor``) — spawning tasks, ramping, auto-adopt,
-  teardown. Phase 1 shipped the basic spawn path; ramping and auto-adopt
-  are Phase 2+.
+  publishing work to the worker via ``worker_commands``, and scheduling
+  the state-transition task via Celery countdown.
+- Worker (``engine.supervisor``) — spawning tasks, honouring per-spawn
+  ``delay_ms``, auto-adoption loop, teardown.
 """
 
 from __future__ import annotations
@@ -15,6 +15,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
@@ -22,6 +23,8 @@ from apps.common.worker_commands import CHANNEL_DEVICES, publish_worker_command
 from apps.devices.services import create_device, deterministic_mac
 
 from .models import Fleet
+from .ramp import compute_delays, ramp_duration_ms
+from .tasks import transition_fleet_to_active
 
 _MAC_RE = re.compile(r"^([0-9a-f]{2}:){5}[0-9a-f]{2}$")
 
@@ -31,17 +34,14 @@ def _slugify(value: str) -> str:
 
 
 def instantiate_fleet(fleet: Fleet) -> list[str]:
-    """Materialise ``fleet`` into virtual devices.
+    """Materialise ``fleet`` into virtual devices and schedule the ramp.
 
-    Two modes:
-
-    - If ``fleet.blueprint`` is set, iterate ``parsed_json.site.devices``
-      and create one row per entry, honouring hostname/model/mac overrides.
-      ``device_count`` is set to the resulting count.
-    - Otherwise (simple mode), create ``fleet.device_count`` rows, all of
-      ``fleet.model_code``.
-
-    Runs inside a transaction; spawn commands fire only after commit.
+    Order of operations:
+    1. Inside a transaction, flip state to 'ramping' and create device rows.
+    2. After commit, compute per-device spawn delays from ``ramp_spec`` and
+       publish one ``spawn`` command per device with its ``delay_ms``.
+    3. Schedule ``transition_fleet_to_active`` to fire after the ramp
+       duration (via Celery countdown — inline under eager mode in dev).
     """
     device_ids: list[str] = []
     with transaction.atomic():
@@ -55,8 +55,24 @@ def instantiate_fleet(fleet: Fleet) -> list[str]:
         else:
             device_ids = _instantiate_simple(fleet)
 
-    for device_id in device_ids:
-        publish_worker_command(CHANNEL_DEVICES, action="spawn", device_id=device_id)
+    delays = compute_delays(len(device_ids), fleet.ramp_spec)
+    for device_id, delay_ms in zip(device_ids, delays, strict=False):
+        publish_worker_command(
+            CHANNEL_DEVICES,
+            action="spawn",
+            device_id=device_id,
+            delay_ms=delay_ms,
+            auto_adopt=bool(fleet.auto_adopt),
+            fleet_id=str(fleet.id),
+        )
+
+    countdown_s = ramp_duration_ms(delays) / 1000.0
+    if getattr(settings, "CELERY_TASK_ALWAYS_EAGER", False):
+        # Eager mode (dev/tests): countdown semantics vary by Celery
+        # version. Run inline — countdown is a production concern.
+        transition_fleet_to_active(str(fleet.id))
+    else:
+        transition_fleet_to_active.apply_async(args=[str(fleet.id)], countdown=countdown_s)
     return device_ids
 
 
