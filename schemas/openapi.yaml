@@ -954,6 +954,76 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/v1/controllers/{id}/health-check/:
+    post:
+      operationId: v1_controllers_health_check_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this controller target.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ControllerTargetRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ControllerTargetRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ControllerTargetRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ControllerTarget'
+          description: ''
+  /api/v1/controllers/{id}/secrets/:
+    post:
+      operationId: v1_controllers_secrets_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this controller target.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ControllerTargetRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ControllerTargetRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ControllerTargetRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ControllerTarget'
+          description: ''
   /api/v1/devices/:
     get:
       operationId: v1_devices_list
@@ -1371,6 +1441,50 @@ paths:
   /api/v1/system/health/:
     get:
       operationId: v1_system_health_retrieve
+      description: Liveness probe + component status, public.
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/v1/system/metrics/:
+    get:
+      operationId: v1_system_metrics_retrieve
+      description: |-
+        Prometheus exposition, admin-only.
+
+        Returns the raw Prometheus text format; bypasses DRF's JSON renderer.
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/system/readyz/:
+    get:
+      operationId: v1_system_readyz_retrieve
+      description: |-
+        Readiness probe — returns 503 if required deps are degraded.
+
+        Redis is optional in dev ("skipped" counts as ready).
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/v1/system/version/:
+    get:
+      operationId: v1_system_version_retrieve
       tags:
       - v1
       security:

@@ -8,6 +8,7 @@ Creates:
 
 Idempotent — re-running it updates missing rows without duplicating.
 """
+
 from __future__ import annotations
 
 import os

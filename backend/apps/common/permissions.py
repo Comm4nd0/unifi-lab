@@ -4,6 +4,7 @@
 specific scope in its ``scopes`` list. JWT tokens get the full admin scope
 bag; ApiTokens carry an explicit scope list on the row.
 """
+
 from __future__ import annotations
 
 from rest_framework import permissions
@@ -29,5 +30,5 @@ class IsScoped(permissions.BasePermission):
         scopes: list[str] = getattr(token, "scopes", []) or []
         return self.required_scope in scopes
 
-    def __call__(self) -> "IsScoped":
+    def __call__(self) -> IsScoped:
         return self

@@ -6,6 +6,7 @@ All environment variables are namespaced with UVL_.
 
 from __future__ import annotations
 
+import logging
 import os
 from datetime import timedelta
 from pathlib import Path
@@ -67,12 +68,14 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    "apps.common.middleware.RequestIdMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "apps.common.middleware.AuditLogMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -196,6 +199,21 @@ CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TIMEZONE = TIME_ZONE
 
 # ── Logging ───────────────────────────────────────────────────────
+import structlog  # noqa: E402
+
+structlog.configure(
+    processors=[
+        structlog.contextvars.merge_contextvars,
+        structlog.processors.add_log_level,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.StackInfoRenderer(),
+        structlog.processors.format_exc_info,
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
+    cache_logger_on_first_use=True,
+)
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
