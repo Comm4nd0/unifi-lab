@@ -19,6 +19,8 @@ import { InformInspectorPage } from "./InformInspectorPage";
 import { FleetsPage } from "./FleetsPage";
 import { FleetDetailPage } from "./FleetDetailPage";
 import { FirmwarePage } from "./FirmwarePage";
+import { BlueprintsPage } from "./BlueprintsPage";
+import { BlueprintEditorPage } from "./BlueprintEditorPage";
 
 const rootRoute = createRootRoute({
   component: () => <Outlet />,
@@ -100,6 +102,24 @@ const firmwareRoute = createRoute({
   component: FirmwarePage,
 });
 
+const blueprintsRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/blueprints",
+  component: BlueprintsPage,
+});
+
+const blueprintNewRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/blueprints/new",
+  component: BlueprintEditorPage,
+});
+
+const blueprintEditorRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/blueprints/$id",
+  component: BlueprintEditorPage,
+});
+
 const notFoundRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "*",
@@ -118,6 +138,9 @@ const routeTree = rootRoute.addChildren([
     fleetsRoute,
     fleetDetailRoute,
     firmwareRoute,
+    blueprintsRoute,
+    blueprintNewRoute,
+    blueprintEditorRoute,
   ]),
   notFoundRoute,
 ]);

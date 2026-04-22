@@ -153,6 +153,30 @@ export type DeviceTemplate = {
   device_family: "ap" | "switch" | "gateway" | "other";
 };
 
+export type Blueprint = {
+  id: string;
+  name: string;
+  source_yaml: string;
+  parsed_json: Record<string, unknown>;
+  version: number;
+  is_active: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type BlueprintValidationIssue = {
+  severity: "error" | "warning";
+  path: string;
+  message: string;
+};
+
+export type BlueprintValidationResult = {
+  valid: boolean;
+  parsed: Record<string, unknown> | null;
+  issues: BlueprintValidationIssue[];
+};
+
 export type FirmwareBlob = {
   id: string;
   filename: string;
@@ -212,6 +236,17 @@ export const endpoints = {
   },
   templates: {
     list: () => api.get<Paginated<DeviceTemplate>>("/api/v1/templates/"),
+  },
+  blueprints: {
+    list: () => api.get<Paginated<Blueprint>>("/api/v1/blueprints/"),
+    get: (id: string) => api.get<Blueprint>(`/api/v1/blueprints/${id}/`),
+    create: (body: { name: string; source_yaml: string }) =>
+      api.post<Blueprint>("/api/v1/blueprints/", body),
+    update: (id: string, body: { name: string; source_yaml: string }) =>
+      api.put<Blueprint>(`/api/v1/blueprints/${id}/`, body),
+    delete: (id: string) => api.delete<void>(`/api/v1/blueprints/${id}/`),
+    validate: (source_yaml: string) =>
+      api.post<BlueprintValidationResult>("/api/v1/blueprints/validate/", { source_yaml }),
   },
   firmware: {
     list: () => api.get<Paginated<FirmwareBlob>>("/api/v1/firmware/"),

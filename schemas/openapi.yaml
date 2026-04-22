@@ -798,6 +798,34 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/v1/blueprints/validate/:
+    post:
+      operationId: v1_blueprints_validate_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BlueprintRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BlueprintRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BlueprintRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Blueprint'
+          description: ''
   /api/v1/controllers/:
     get:
       operationId: v1_controllers_list
