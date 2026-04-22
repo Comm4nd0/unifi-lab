@@ -61,6 +61,11 @@ fixtures/pcaps/*.pcapng
 fixtures/pcaps/*.pcap
 fixtures/controller_backups/*.unf
 
+# Playwright
+frontend/test-results/
+frontend/playwright-report/
+frontend/playwright/.cache/
+
 # Flutter
 mobile/build/
 mobile/.dart_tool/
