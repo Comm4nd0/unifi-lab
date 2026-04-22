@@ -28,3 +28,10 @@ if not _os.environ.get("UVL_CHANNELS_LAYER_URL"):
     CHANNEL_LAYERS = {
         "default": {"BACKEND": "channels.layers.InMemoryChannelLayer"},
     }
+
+# Without a Celery worker running, .delay() goes to Redis and hangs. In
+# local mode we execute tasks inline so firmware ingest / similar fire-and-
+# forget work still completes during a simple `daphne` run.
+if not _os.environ.get("UVL_CELERY_DISABLE_EAGER"):
+    CELERY_TASK_ALWAYS_EAGER = True
+    CELERY_TASK_EAGER_PROPAGATES = True

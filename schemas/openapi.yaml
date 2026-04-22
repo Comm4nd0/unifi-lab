@@ -1295,6 +1295,29 @@ paths:
               schema:
                 $ref: '#/components/schemas/PaginatedFirmwareBlobList'
           description: ''
+    post:
+      operationId: v1_firmware_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FirmwareBlobRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/FirmwareBlobRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FirmwareBlob'
+          description: ''
   /api/v1/firmware/{id}/:
     get:
       operationId: v1_firmware_retrieve
@@ -1318,6 +1341,24 @@ paths:
               schema:
                 $ref: '#/components/schemas/FirmwareBlob'
           description: ''
+    delete:
+      operationId: v1_firmware_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this firmware blob.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
   /api/v1/fleets/:
     get:
       operationId: v1_fleets_list
@@ -2071,6 +2112,30 @@ components:
       - size_bytes
       - state
       - updated_at
+    FirmwareBlobRequest:
+      type: object
+      properties:
+        filename:
+          type: string
+          minLength: 1
+          maxLength: 255
+        sha256:
+          type: string
+          minLength: 1
+          maxLength: 64
+        size_bytes:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+        model_codes: {}
+        version:
+          type: string
+          maxLength: 64
+      required:
+      - filename
+      - sha256
+      - size_bytes
     FirmwareBlobStateEnum:
       enum:
       - uploaded

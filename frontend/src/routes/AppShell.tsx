@@ -9,6 +9,7 @@ const NAV = [
   { to: "/controllers", label: "Controllers" },
   { to: "/fleets", label: "Fleets" },
   { to: "/devices", label: "Devices" },
+  { to: "/firmware", label: "Firmware" },
 ];
 
 export function AppShell() {

@@ -18,6 +18,7 @@ import { DeviceDetailPage } from "./DeviceDetailPage";
 import { InformInspectorPage } from "./InformInspectorPage";
 import { FleetsPage } from "./FleetsPage";
 import { FleetDetailPage } from "./FleetDetailPage";
+import { FirmwarePage } from "./FirmwarePage";
 
 const rootRoute = createRootRoute({
   component: () => <Outlet />,
@@ -93,6 +94,12 @@ const fleetDetailRoute = createRoute({
   component: FleetDetailPage,
 });
 
+const firmwareRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/firmware",
+  component: FirmwarePage,
+});
+
 const notFoundRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "*",
@@ -110,6 +117,7 @@ const routeTree = rootRoute.addChildren([
     deviceInformRoute,
     fleetsRoute,
     fleetDetailRoute,
+    firmwareRoute,
   ]),
   notFoundRoute,
 ]);

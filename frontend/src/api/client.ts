@@ -41,6 +41,8 @@ async function request<T>(path: string, init?: RequestOptions): Promise<T> {
       "Content-Type": "application/json",
       ...(init?.headers as Record<string, string> | undefined),
     };
+    // Caller can blank Content-Type to let the browser pick the multipart boundary.
+    if (headers["Content-Type"] === "") delete headers["Content-Type"];
     if (access && !init?.skipAuth) {
       headers.Authorization = `Bearer ${access}`;
     }
@@ -84,6 +86,14 @@ export const api = {
   put: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: "PUT", body: JSON.stringify(body ?? {}) }),
   delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
+  // Multipart form uploads — don't stringify, let fetch set Content-Type
+  // with the boundary.
+  postForm: <T>(path: string, form: FormData) =>
+    request<T>(path, {
+      method: "POST",
+      body: form,
+      headers: { "Content-Type": "" }, // Clearing triggers browser-set multipart boundary.
+    }),
 };
 
 // ── Typed resource shapes (subset matching what the UI needs) ────────
@@ -143,6 +153,19 @@ export type DeviceTemplate = {
   device_family: "ap" | "switch" | "gateway" | "other";
 };
 
+export type FirmwareBlob = {
+  id: string;
+  filename: string;
+  sha256: string;
+  size_bytes: number;
+  model_codes: string[];
+  version: string;
+  state: "uploaded" | "ingesting" | "ready" | "failed";
+  ingest_error: string;
+  created_at: string;
+  updated_at: string;
+};
+
 export type Fleet = {
   id: string;
   name: string;
@@ -189,6 +212,16 @@ export const endpoints = {
   },
   templates: {
     list: () => api.get<Paginated<DeviceTemplate>>("/api/v1/templates/"),
+  },
+  firmware: {
+    list: () => api.get<Paginated<FirmwareBlob>>("/api/v1/firmware/"),
+    get: (id: string) => api.get<FirmwareBlob>(`/api/v1/firmware/${id}/`),
+    upload: (file: File) => {
+      const form = new FormData();
+      form.append("file", file);
+      return api.postForm<FirmwareBlob>("/api/v1/firmware/", form);
+    },
+    delete: (id: string) => api.delete<void>(`/api/v1/firmware/${id}/`),
   },
   fleets: {
     list: () => api.get<Paginated<Fleet>>("/api/v1/fleets/"),
