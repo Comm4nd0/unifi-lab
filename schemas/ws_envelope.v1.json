@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://uvl.example.com/schemas/ws_envelope.v1.json",
+  "title": "UVL WebSocket Envelope",
+  "description": "Every WebSocket message from the Django service follows this envelope.",
+  "type": "object",
+  "required": ["v", "type", "ts"],
+  "properties": {
+    "v": { "type": "integer", "enum": [1] },
+    "type": {
+      "type": "string",
+      "description": "Dot-separated event type, e.g. 'device.state_changed'"
+    },
+    "ts": { "type": "string", "format": "date-time" },
+    "correlation_id": { "type": "string" },
+    "data": { "type": "object" }
+  }
+}

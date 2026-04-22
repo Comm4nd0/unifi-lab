@@ -1,0 +1,27 @@
+name: OpenAPI drift
+
+on:
+  pull_request:
+    paths:
+      - "backend/**"
+      - "schemas/openapi.yaml"
+      - ".github/workflows/openapi-drift.yml"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+      - name: Sync deps
+        working-directory: backend
+        run: uv sync --all-extras
+      - name: Emit fresh schema
+        working-directory: backend
+        run: uv run python manage.py spectacular --file /tmp/fresh.yaml --validate
+      - name: Diff against checked-in schema
+        run: diff -u schemas/openapi.yaml /tmp/fresh.yaml

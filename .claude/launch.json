@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "backend",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd backend && .venv/Scripts/daphne.exe -b 0.0.0.0 -p 8003 config.asgi:application"],
+      "port": 8003
+    },
+    {
+      "name": "frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "-w", "frontend"],
+      "port": 5173
+    }
+  ]
+}

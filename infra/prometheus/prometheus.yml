@@ -1,0 +1,9 @@
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+
+scrape_configs:
+  - job_name: uvl-app
+    static_configs:
+      - targets: ["app:8003"]
+    metrics_path: /api/v1/system/metrics/

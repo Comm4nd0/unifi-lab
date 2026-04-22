@@ -1,0 +1,18 @@
+{
+  "name": "unifi-lab",
+  "private": true,
+  "version": "0.1.0",
+  "description": "UniFi Virtual Lab monorepo root",
+  "workspaces": [
+    "frontend",
+    "clients/typescript"
+  ],
+  "scripts": {
+    "lint": "npm run lint --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

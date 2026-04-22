@@ -1,0 +1,23 @@
+# Paste this block into ~/caddy/Caddyfile on Luma001.
+# Replace uvl.example.com with the chosen UVL subdomain.
+uvl.example.com {
+    encode zstd gzip
+
+    # WebSocket support for Django Channels
+    @ws {
+        header Connection *Upgrade*
+        header Upgrade    websocket
+    }
+    reverse_proxy @ws 172.17.0.1:8003 {
+        transport http {
+            read_timeout  1h
+            write_timeout 1h
+        }
+    }
+
+    reverse_proxy 172.17.0.1:8003
+
+    log {
+        output file /var/log/caddy/uvl.access.log
+    }
+}

@@ -1,0 +1,38 @@
+site_name: UniFi Virtual Lab
+site_description: Protocol-faithful simulator for UniFi networks
+site_author: Marco Baldanza
+repo_url: https://github.com/Comm4nd0/unifi-lab
+repo_name: Comm4nd0/unifi-lab
+edit_uri: edit/main/docs/docs/
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - content.code.copy
+    - content.tabs.link
+
+nav:
+  - Home: index.md
+  - Getting started:
+      - Installation: getting-started/installation.md
+  - Concepts: []
+  - API reference: []
+  - Guides: []
+  - ADRs: []
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - pymdownx.details
+  - pymdownx.tabbed

@@ -1,0 +1,27 @@
+# Local mode — single `app` container running supervisord. Postgres + Redis
+# from the base compose. Intended for "try UVL on my laptop".
+include:
+  - docker-compose.base.yml
+
+services:
+  app:
+    build:
+      context: ../backend
+      target: local
+    restart: unless-stopped
+    env_file:
+      - ../.env.local
+    environment:
+      UVL_DEPLOYMENT_MODE: local
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8003:8003"
+    volumes:
+      - app-blobs:/var/lib/uvl/blobs
+
+volumes:
+  app-blobs:

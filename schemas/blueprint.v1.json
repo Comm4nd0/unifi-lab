@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://uvl.example.com/schemas/blueprint.v1.json",
+  "title": "UVL Blueprint",
+  "description": "Declarative description of a UniFi site — VLANs, WLANs, devices, traffic profiles.",
+  "type": "object",
+  "required": ["schema_version", "name", "site"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": ["uvl-blueprint/v1"]
+    },
+    "name": { "type": "string", "minLength": 1, "maxLength": 255 },
+    "description": { "type": "string" },
+    "labels": {
+      "type": "array",
+      "items": { "type": "string", "maxLength": 50 }
+    },
+    "site": {
+      "type": "object",
+      "required": ["networks", "devices"],
+      "properties": {
+        "networks": { "type": "array", "items": { "type": "object" } },
+        "wlans": { "type": "array", "items": { "type": "object" } },
+        "devices": { "type": "array", "items": { "type": "object" } },
+        "clients": { "type": "array", "items": { "type": "object" } },
+        "traffic_profiles": { "type": "array", "items": { "type": "object" } }
+      }
+    }
+  }
+}

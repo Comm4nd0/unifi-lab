@@ -1,0 +1,29 @@
+# Dev mode — infra only. Django, engine, and Celery run from your host
+# (uv + npm), with hot-reload. Postgres + Redis + MinIO stay in containers.
+include:
+  - docker-compose.base.yml
+
+services:
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: uvlminio
+      MINIO_ROOT_PASSWORD: uvlminiochange
+    volumes:
+      - minio-dev-data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+
+  postgres:
+    ports:
+      - "5432:5432"
+
+  redis:
+    ports:
+      - "6379:6379"
+
+volumes:
+  minio-dev-data:

@@ -1,0 +1,63 @@
+# Production mode — split containers for Django, device worker, Celery.
+# Used on Luma001 behind Caddy.
+include:
+  - docker-compose.base.yml
+
+services:
+  app:
+    build:
+      context: ../backend
+      target: app
+    restart: unless-stopped
+    env_file:
+      - ../.env.production
+    environment:
+      UVL_DEPLOYMENT_MODE: production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8003:8003"
+
+  worker-devices:
+    build:
+      context: ../backend
+      target: worker-devices
+    restart: unless-stopped
+    env_file:
+      - ../.env.production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker-celery:
+    build:
+      context: ../backend
+      target: worker-celery
+    restart: unless-stopped
+    env_file:
+      - ../.env.production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    env_file:
+      - ../.env.production
+    environment:
+      MINIO_ROOT_USER: ${UVL_MINIO_ACCESS_KEY:-uvlminio}
+      MINIO_ROOT_PASSWORD: ${UVL_MINIO_SECRET_KEY:-uvlminiochange}
+    volumes:
+      - minio-data:/data
+
+volumes:
+  minio-data:

@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://uvl.example.com/schemas/traffic_profile.v1.json",
+  "title": "UVL Traffic Profile",
+  "description": "Describes simulated traffic patterns that produce flow records.",
+  "type": "object",
+  "required": ["schema_version", "name", "flows"],
+  "properties": {
+    "schema_version": { "type": "string", "enum": ["uvl-traffic/v1"] },
+    "name": { "type": "string", "minLength": 1, "maxLength": 255 },
+    "flows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["protocol", "src", "dst", "rate"],
+        "properties": {
+          "protocol": { "type": "string", "enum": ["tcp", "udp", "icmp"] },
+          "src": { "type": "string" },
+          "dst": { "type": "string" },
+          "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+          "rate": { "type": "string", "description": "e.g. '5mbps'" },
+          "application": { "type": "string" }
+        }
+      }
+    }
+  }
+}
