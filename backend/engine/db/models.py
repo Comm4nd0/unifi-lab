@@ -7,6 +7,9 @@ test in ``tests/contract/test_orm_drift.py`` compares the two at CI time.
 - ``InformExchange`` — fully worker-owned.
 - ``ControllerTarget`` — read-only; worker decrypts creds in-process for
   the auto-adopt loop.
+- ``TrafficProfile`` — read-only; worker reads active rows for the
+  traffic ticker.
+- ``FlowRecord`` — worker-owned (traffic ticker writes here).
 """
 
 from __future__ import annotations
@@ -14,7 +17,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text
+from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -84,11 +87,48 @@ class InformExchange(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
+class TrafficProfile(Base):
+    __tablename__ = "traffic_trafficprofile"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    name: Mapped[str] = mapped_column(String(255))
+    description: Mapped[str] = mapped_column(Text)
+    source_yaml: Mapped[str] = mapped_column(Text)
+    parsed_json: Mapped[dict] = mapped_column(JSONB)
+    version: Mapped[int] = mapped_column(Integer)
+    is_active: Mapped[bool] = mapped_column(Boolean)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class FlowRecord(Base):
+    __tablename__ = "traffic_flowrecord"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    device_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("devices_virtualdevice.id", ondelete="CASCADE")
+    )
+    protocol: Mapped[str] = mapped_column(String(8))
+    src_ip: Mapped[str] = mapped_column(String(39))  # GenericIPAddressField → varchar(39)
+    dst_ip: Mapped[str] = mapped_column(String(39))
+    src_port: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    dst_port: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    bytes_tx: Mapped[int] = mapped_column(BigInteger)
+    bytes_rx: Mapped[int] = mapped_column(BigInteger)
+    application: Mapped[str] = mapped_column(String(64))
+    reported_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    blocked: Mapped[bool] = mapped_column(Boolean)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
 __all__ = [
-    "STATE_PENDING",
     "Base",
     "ControllerTarget",
+    "FlowRecord",
     "InformExchange",
+    "STATE_PENDING",
+    "TrafficProfile",
     "VirtualDevice",
 ]
 

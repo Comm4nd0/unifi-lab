@@ -47,6 +47,8 @@ MIRROR_MAP = [
     ("devices", "InformExchange"),
     ("devices", "VirtualDevice"),
     ("controllers", "ControllerTarget"),
+    ("traffic", "TrafficProfile"),
+    ("traffic", "FlowRecord"),
 ]
 
 

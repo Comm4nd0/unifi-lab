@@ -33,6 +33,7 @@ from .crypto import decrypt
 from .db.models import STATE_PENDING, ControllerTarget, VirtualDevice
 from .db.session import make_engine, make_sessionmaker
 from .redis_commands import CHANNEL_DEVICES, subscribe_worker_commands
+from .traffic import TrafficTicker, run_ticker_loop
 
 log = logging.getLogger("uvl.engine.supervisor")
 
@@ -50,6 +51,7 @@ class Supervisor:
         self.cfg = cfg
         self._tasks: dict[str, asyncio.Task[None]] = {}
         self._command_task: asyncio.Task[None] | None = None
+        self._traffic_task: asyncio.Task[None] | None = None
         self._stop = asyncio.Event()
         self._engine: AsyncEngine | None = engine
         self._sessionmaker = make_sessionmaker(engine) if engine is not None else None
@@ -78,12 +80,23 @@ class Supervisor:
             self._consume_commands(), name="supervisor.commands"
         )
 
+        # Traffic ticker: reads active profiles, writes FlowRecord rows.
+        if self._sessionmaker is not None:
+            ticker = TrafficTicker(self._sessionmaker)
+            self._traffic_task = asyncio.create_task(
+                run_ticker_loop(ticker, self._stop), name="supervisor.traffic"
+            )
+
     async def shutdown(self) -> None:
         self._stop.set()
         if self._command_task:
             self._command_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await self._command_task
+        if self._traffic_task:
+            self._traffic_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._traffic_task
         for device_id, task in list(self._tasks.items()):
             task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
