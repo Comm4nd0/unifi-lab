@@ -1,7 +1,9 @@
+import { useEffect, useRef } from "react";
 import { Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { endpoints, type VirtualDevice } from "../api/client";
+import { useChannel } from "../api/ws";
 import { FlowRateChart } from "../components/FlowRateChart";
 import { Card, EmptyState, PageHeader, StateChip } from "../components/ui";
 
@@ -54,21 +56,37 @@ function Kpi({
 }
 
 export function DashboardPage() {
+  const qc = useQueryClient();
+  const { state: wsState, messages } = useChannel({ path: "/ws/cluster/" });
+
+  // The cluster socket receives a copy of every fleet event. On each
+  // new message we invalidate the queries that likely need refreshing
+  // so the dashboard stays live without tight polling. We still keep
+  // a slow refetchInterval as a safety net for missed events.
+  const lastSeenCount = useRef(0);
+  useEffect(() => {
+    if (messages.length <= lastSeenCount.current) return;
+    lastSeenCount.current = messages.length;
+    qc.invalidateQueries({ queryKey: ["fleets"] });
+    qc.invalidateQueries({ queryKey: ["devices"] });
+    qc.invalidateQueries({ queryKey: ["audit", "recent"] });
+  }, [messages.length, qc]);
+
   const health = useQuery({
     queryKey: ["health"],
     queryFn: endpoints.health,
-    refetchInterval: 15_000,
+    refetchInterval: 30_000,
   });
   const controllers = useQuery({ queryKey: ["controllers"], queryFn: endpoints.controllers.list });
   const devices = useQuery({
     queryKey: ["devices"],
     queryFn: endpoints.devices.list,
-    refetchInterval: 10_000,
+    refetchInterval: 30_000,
   });
   const fleets = useQuery({
     queryKey: ["fleets"],
     queryFn: endpoints.fleets.list,
-    refetchInterval: 10_000,
+    refetchInterval: 30_000,
   });
   const stats = useQuery({
     queryKey: ["traffic", "flows", "stats", "cluster"],
@@ -111,7 +129,13 @@ export function DashboardPage() {
     <>
       <PageHeader
         title="Dashboard"
-        subtitle="Live cluster state — refreshes every few seconds."
+        subtitle="Live cluster state — updates on fleet events over WebSocket."
+        actions={
+          <span className="flex items-center gap-2 text-xs text-slate-400">
+            <span>Live:</span>
+            <StateChip state={wsState} />
+          </span>
+        }
       />
 
       <div className="grid gap-4 md:grid-cols-4">

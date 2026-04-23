@@ -24,6 +24,9 @@ def group_name(fleet_id: str) -> str:
     return f"fleet.{fleet_id}"
 
 
+CLUSTER_GROUP = "cluster"
+
+
 def _envelope(type_: str, data: dict[str, Any]) -> dict[str, Any]:
     return {
         "v": 1,
@@ -43,9 +46,17 @@ def publish_fleet_event(fleet_id: str, event_type: str, **data: Any) -> None:
         layer = get_channel_layer()
         if layer is None:
             return
+        envelope = _envelope(event_type, {"fleet_id": fleet_id, **data})
+        # Publish to the per-fleet group (detail page subscribers) and to
+        # the shared ``cluster`` group (dashboard subscribers) so either
+        # consumer receives the same payload.
         async_to_sync(layer.group_send)(
             group_name(fleet_id),
-            {"type": "fleet.event", "payload": _envelope(event_type, data)},
+            {"type": "fleet.event", "payload": envelope},
+        )
+        async_to_sync(layer.group_send)(
+            CLUSTER_GROUP,
+            {"type": "fleet.event", "payload": envelope},
         )
     except Exception:
         log.exception("publish_fleet_event.failed", extra={"fleet_id": fleet_id})
