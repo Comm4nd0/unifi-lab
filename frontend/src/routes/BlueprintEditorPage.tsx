@@ -11,12 +11,13 @@ import { BlueprintCanvas } from "../components/BlueprintCanvas";
 import { BlueprintTopology } from "../components/BlueprintTopology";
 import { DevicePalette } from "../components/DevicePalette";
 import { YamlEditor } from "../components/YamlEditor";
-import { Button, Card, Input, Label, PageHeader } from "../components/ui";
+import { Button, Card, Input, Label, PageHeader, Select } from "../components/ui";
 import {
   parseBlueprintYaml,
   stringifyBlueprint,
   type BlueprintDoc,
 } from "../lib/blueprintDoc";
+import { BLUEPRINT_STARTERS, getStarter } from "../lib/blueprintStarters";
 
 const EXAMPLE = `schema_version: uvl-blueprint/v1
 name: example-home
@@ -60,7 +61,7 @@ export function BlueprintEditorPage() {
   });
 
   const [name, setName] = useState("");
-  const [source, setSource] = useState(EXAMPLE);
+  const [source, setSource] = useState(getStarter("home")?.yaml ?? EXAMPLE);
   const [validation, setValidation] = useState<BlueprintValidationResult | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [view, setView] = useState<View>("canvas");
@@ -163,9 +164,41 @@ export function BlueprintEditorPage() {
         }
       />
 
-      <div className="mb-4 grid gap-2 md:max-w-sm">
-        <Label>Blueprint name (internal)</Label>
-        <Input required value={name} onChange={(e) => setName(e.target.value)} />
+      <div className="mb-4 grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
+        <div className="grid gap-2 md:max-w-sm">
+          <Label>Blueprint name (internal)</Label>
+          <Input required value={name} onChange={(e) => setName(e.target.value)} />
+        </div>
+        {isNew && (
+          <div className="grid gap-2 md:max-w-sm">
+            <Label>Start from</Label>
+            <Select
+              defaultValue="home"
+              onChange={(e) => {
+                const starter = getStarter(e.target.value);
+                if (!starter) return;
+                if (
+                  source.trim() &&
+                  source !== (getStarter("home")?.yaml ?? "") &&
+                  !confirm(
+                    `Replace the current source with the "${starter.label}" starter? This cannot be undone.`,
+                  )
+                ) {
+                  // Reset the Select back to whatever matches the current source (or "home").
+                  e.target.value = "home";
+                  return;
+                }
+                setSource(starter.yaml);
+              }}
+            >
+              {BLUEPRINT_STARTERS.map((s) => (
+                <option key={s.id} value={s.id} title={s.description}>
+                  {s.label}
+                </option>
+              ))}
+            </Select>
+          </div>
+        )}
       </div>
 
       {view === "canvas" ? (
