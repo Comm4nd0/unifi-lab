@@ -136,6 +136,26 @@ export function BlueprintEditorPage() {
     },
   });
 
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const onImportClick = () => fileInputRef.current?.click();
+  const onFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    // Clear the input so the same file can be picked again after an
+    // aborted import — the change event only fires when the value
+    // actually changes.
+    e.target.value = "";
+    if (!file) return;
+    const text = await file.text();
+    if (
+      source.trim() &&
+      source !== (getStarter("home")?.yaml ?? "") &&
+      !confirm(`Replace the current source with "${file.name}"? This cannot be undone.`)
+    ) {
+      return;
+    }
+    setSource(text);
+  };
+
   const exportYaml = () => {
     // Prefer the current in-editor source over the saved copy so users
     // can export unsaved drafts. Filename follows the internal name
@@ -176,6 +196,16 @@ export function BlueprintEditorPage() {
               ← All blueprints
             </Link>
             <ViewToggle view={view} onChange={setView} />
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".yaml,.yml,application/x-yaml,text/yaml"
+              className="hidden"
+              onChange={onFileSelected}
+            />
+            <Button size="sm" variant="ghost" onClick={onImportClick}>
+              Import YAML
+            </Button>
             <Button size="sm" variant="ghost" onClick={exportYaml}>
               Export YAML
             </Button>
