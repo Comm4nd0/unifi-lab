@@ -46,6 +46,7 @@ def _sqlalchemy_columns(model: type[DeclarativeBase]) -> dict[str, bool]:
 MIRROR_MAP = [
     ("devices", "InformExchange"),
     ("devices", "VirtualDevice"),
+    ("controllers", "ControllerTarget"),
 ]
 
 

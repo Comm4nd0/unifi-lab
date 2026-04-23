@@ -3,9 +3,10 @@
 Must match the Django migrations on the corresponding tables. The drift
 test in ``tests/contract/test_orm_drift.py`` compares the two at CI time.
 
-``VirtualDevice`` is read-only from the worker's perspective (Django writes);
-``InformExchange`` is fully worker-owned. We don't mirror every Django field
-— only what the engine actually reads or writes.
+- ``VirtualDevice`` — read-only from the worker's perspective (Django writes).
+- ``InformExchange`` — fully worker-owned.
+- ``ControllerTarget`` — read-only; worker decrypts creds in-process for
+  the auto-adopt loop.
 """
 
 from __future__ import annotations
@@ -20,6 +21,24 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 class Base(DeclarativeBase):
     pass
+
+
+class ControllerTarget(Base):
+    __tablename__ = "controllers_controllertarget"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    name: Mapped[str] = mapped_column(String(255))
+    kind: Mapped[str] = mapped_column(String(32))
+    inform_url: Mapped[str] = mapped_column(Text)
+    api_url: Mapped[str] = mapped_column(Text)
+    api_username: Mapped[str] = mapped_column(Text)
+    api_password: Mapped[str] = mapped_column(Text)
+    verify_tls: Mapped[bool] = mapped_column(Boolean)
+    is_active: Mapped[bool] = mapped_column(Boolean)
+    health: Mapped[str] = mapped_column(String(32))
+    last_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
 class VirtualDevice(Base):
@@ -65,7 +84,12 @@ class InformExchange(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
-__all__ = ["STATE_PENDING", "Base", "InformExchange", "VirtualDevice"]
+__all__ = [
+    "STATE_PENDING",
+    "Base",
+    "ControllerTarget",
+    "InformExchange",
+    "VirtualDevice",
+]
 
 STATE_PENDING = "pending"
-_ = Boolean  # keep import for future mirrors (e.g. ControllerTarget.verify_tls)

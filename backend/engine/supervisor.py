@@ -8,11 +8,13 @@ Three sources of work:
 2. Live commands — while running, subscribe to Redis ``worker:commands:*``
    and react to ``spawn`` / ``force_inform`` / ``despawn`` envelopes.
    Spawn envelopes may carry ``delay_ms`` (fleet ramp) and ``auto_adopt``
-   (triggers the post-connect adoption stub).
+   (triggers the real auto-adopt loop against the controller API).
 3. Shutdown — cancel every running device task cleanly on SIGTERM/SIGINT.
 
-In Phase 0 the spawned tasks just log a stub loop — no bytes are
-transmitted until ``engine.protocol.codec`` is real.
+In Phase 0 the spawned tasks just log a stub loop for the inform session
+— no bytes are transmitted until ``engine.protocol.codec`` is real — but
+auto-adopt reaches the controller's HTTP adopt endpoint directly and
+works end-to-end once credentials are provisioned.
 """
 
 from __future__ import annotations
@@ -20,17 +22,21 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
-from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from .clients.unifi import UnifiApiError, UosServerClient
 from .config import EngineConfig
-from .db.models import STATE_PENDING, VirtualDevice
+from .crypto import decrypt
+from .db.models import STATE_PENDING, ControllerTarget, VirtualDevice
 from .db.session import make_engine, make_sessionmaker
 from .redis_commands import CHANNEL_DEVICES, subscribe_worker_commands
 
 log = logging.getLogger("uvl.engine.supervisor")
+
+AUTO_ADOPT_MAX_ATTEMPTS = 4
+AUTO_ADOPT_INITIAL_BACKOFF_S = 1.0
 
 
 class Supervisor:
@@ -46,6 +52,11 @@ class Supervisor:
         self._stop = asyncio.Event()
         self._engine: AsyncEngine | None = engine
         self._sessionmaker = make_sessionmaker(engine) if engine is not None else None
+        # Factory override for testing so the suite can inject a fake
+        # UosServerClient without patching imports.
+        self.client_factory = self._default_client_factory
+
+    # --- lifecycle -----------------------------------------------------
 
     async def start(self) -> None:
         log.info("supervisor.start", extra={"redis": self.cfg.redis_url.split("@")[-1]})
@@ -81,6 +92,8 @@ class Supervisor:
             await self._engine.dispose()
             self._engine = None
 
+    # --- DB reads -------------------------------------------------------
+
     async def _load_pending_devices(self) -> list[str]:
         assert self._sessionmaker is not None
         async with self._sessionmaker() as session:
@@ -88,6 +101,8 @@ class Supervisor:
                 select(VirtualDevice.id).where(VirtualDevice.state == STATE_PENDING)
             )
             return [str(row) for (row,) in result.all()]
+
+    # --- command loop ---------------------------------------------------
 
     async def _consume_commands(self) -> None:
         try:
@@ -105,8 +120,6 @@ class Supervisor:
                 if action == "spawn":
                     delay_ms = int(envelope.get("delay_ms") or 0)
                     auto_adopt = bool(envelope.get("auto_adopt"))
-                    # Schedule as its own task so multiple delayed spawns
-                    # run concurrently rather than serialising.
                     asyncio.create_task(
                         self._delayed_spawn(device_id, delay_ms, auto_adopt=auto_adopt),
                         name=f"delayed-spawn:{device_id}",
@@ -146,12 +159,12 @@ class Supervisor:
         log.info("supervisor.force_inform", extra={"device_id": device_id})
 
     async def _run_device(self, device_id: str, *, auto_adopt: bool = False) -> None:
-        """Phase 0 stub device loop.
+        """Phase 0 stub device loop for inform session.
 
         Once ``engine.protocol.codec`` is real, this opens the inform
-        session, waits for adoption, and maintains heartbeats. Until then
-        the loop just logs ticks and (when ``auto_adopt``) pretends to call
-        the controller's adopt API.
+        session, waits for adoption, and maintains heartbeats. For now
+        the loop just logs ticks. Auto-adoption runs first and reaches
+        the real controller API — it doesn't need the inform codec.
         """
         log.info("device.loop.start", extra={"device_id": device_id, "auto_adopt": auto_adopt})
         if auto_adopt:
@@ -164,38 +177,98 @@ class Supervisor:
             log.info("device.loop.cancelled", extra={"device_id": device_id})
             raise
 
-    async def _auto_adopt_device(self, device_id: str) -> None:
-        """Stub for the auto-adopt loop.
+    # --- auto-adopt -----------------------------------------------------
 
-        Real version resolves the device's controller_target, decrypts its
-        credentials, logs in via ``UosServerClient``, calls ``adopt(mac)``,
-        and retries with exponential backoff on transient failures. For
-        now: read the row for mac + controller target, log what we *would*
-        send.
-        """
-        assert self._sessionmaker is not None
-        async with self._sessionmaker() as session:
-            result = await session.execute(
-                select(
-                    VirtualDevice.mac_address,
-                    VirtualDevice.controller_target_id,
-                ).where(VirtualDevice.id == device_id)
-            )
-            row = result.first()
-        if row is None:
-            log.warning("auto_adopt.device_missing", extra={"device_id": device_id})
-            return
-        mac, controller_target_id = row  # type: ignore[assignment]
-        log.info(
-            "auto_adopt.would_call_controller",
-            extra={
-                "device_id": device_id,
-                "mac": mac,
-                "controller_target_id": str(controller_target_id) if controller_target_id else None,
-                "note": "Phase-0 stub; real UosServerClient.adopt call gated on pcaps",
-            },
+    def _default_client_factory(self, ctrl: ControllerTarget) -> UosServerClient:
+        return UosServerClient(
+            base_url=decrypt(ctrl.api_url),
+            username=decrypt(ctrl.api_username),
+            password=decrypt(ctrl.api_password),
+            kind=ctrl.kind,
+            verify_tls=ctrl.verify_tls,
         )
 
+    async def _load_adopt_context(
+        self, device_id: str
+    ) -> tuple[str | None, ControllerTarget | None]:
+        """Return (mac, controller_row) for a device, or (None, None) if missing."""
+        assert self._sessionmaker is not None
+        async with self._sessionmaker() as session:
+            dev_row = (
+                await session.execute(
+                    select(
+                        VirtualDevice.mac_address,
+                        VirtualDevice.controller_target_id,
+                    ).where(VirtualDevice.id == device_id)
+                )
+            ).first()
+            if dev_row is None:
+                return None, None
+            mac, controller_target_id = dev_row
+            if controller_target_id is None:
+                return mac, None
+            ctrl = await session.get(ControllerTarget, controller_target_id)
+            return mac, ctrl
 
-def _unused_any_hint() -> Any:  # pragma: no cover — keeps Any import usable
-    return None
+    async def _auto_adopt_device(self, device_id: str) -> None:
+        """Call the controller's adopt API for this device, with backoff."""
+        mac, ctrl = await self._load_adopt_context(device_id)
+        if not mac:
+            log.warning("auto_adopt.device_missing", extra={"device_id": device_id})
+            return
+        if ctrl is None:
+            log.info(
+                "auto_adopt.skipped_no_controller",
+                extra={"device_id": device_id, "mac": mac},
+            )
+            return
+
+        backoff = AUTO_ADOPT_INITIAL_BACKOFF_S
+        for attempt in range(1, AUTO_ADOPT_MAX_ATTEMPTS + 1):
+            try:
+                await self._attempt_adopt(mac, ctrl)
+                log.info(
+                    "auto_adopt.ok",
+                    extra={"device_id": device_id, "mac": mac, "attempts": attempt},
+                )
+                return
+            except UnifiApiError as exc:
+                # 4xx (bad creds, bad payload) won't get better with retries.
+                if 400 <= exc.status < 500:
+                    log.error(
+                        "auto_adopt.client_error",
+                        extra={
+                            "device_id": device_id,
+                            "mac": mac,
+                            "status": exc.status,
+                            "msg": exc.message[:200],
+                        },
+                    )
+                    return
+                log.warning(
+                    "auto_adopt.transient_http",
+                    extra={
+                        "device_id": device_id,
+                        "mac": mac,
+                        "status": exc.status,
+                        "attempt": attempt,
+                    },
+                )
+            except Exception:
+                log.exception(
+                    "auto_adopt.unexpected",
+                    extra={"device_id": device_id, "mac": mac, "attempt": attempt},
+                )
+            if attempt >= AUTO_ADOPT_MAX_ATTEMPTS:
+                break
+            await asyncio.sleep(backoff)
+            backoff *= 2
+        log.error(
+            "auto_adopt.gave_up",
+            extra={"device_id": device_id, "mac": mac, "attempts": AUTO_ADOPT_MAX_ATTEMPTS},
+        )
+
+    async def _attempt_adopt(self, mac: str, ctrl: ControllerTarget) -> None:
+        async with self.client_factory(ctrl) as client:
+            await client.login()
+            await client.adopt(mac)
