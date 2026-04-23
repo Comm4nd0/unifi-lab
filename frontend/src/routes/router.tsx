@@ -22,6 +22,7 @@ import { FirmwarePage } from "./FirmwarePage";
 import { BlueprintsPage } from "./BlueprintsPage";
 import { BlueprintEditorPage } from "./BlueprintEditorPage";
 import { AuditPage } from "./AuditPage";
+import { TokensPage } from "./TokensPage";
 import { TopologyPage } from "./TopologyPage";
 import { TrafficPage } from "./TrafficPage";
 
@@ -144,6 +145,12 @@ const auditRoute = createRoute({
   component: AuditPage,
 });
 
+const tokensRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/tokens",
+  component: TokensPage,
+});
+
 const notFoundRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "*",
@@ -168,6 +175,7 @@ const routeTree = rootRoute.addChildren([
     trafficRoute,
     topologyRoute,
     auditRoute,
+    tokensRoute,
   ]),
   notFoundRoute,
 ]);

@@ -14,6 +14,7 @@ const NAV = [
   { to: "/traffic", label: "Traffic" },
   { to: "/firmware", label: "Firmware" },
   { to: "/audit", label: "Audit" },
+  { to: "/tokens", label: "Tokens" },
 ];
 
 export function AppShell() {

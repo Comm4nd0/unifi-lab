@@ -178,6 +178,17 @@ export type BlueprintValidationResult = {
   issues: BlueprintValidationIssue[];
 };
 
+export type ApiToken = {
+  id: string;
+  name: string;
+  scopes: string[];
+  expires_at: string | null;
+  last_used_at: string | null;
+  created_at: string;
+};
+
+export type ApiTokenWithPlaintext = ApiToken & { token: string };
+
 export type AuditLog = {
   id: string;
   actor: string | null;
@@ -353,6 +364,12 @@ export const endpoints = {
       return api.postForm<FirmwareBlob>("/api/v1/firmware/", form);
     },
     delete: (id: string) => api.delete<void>(`/api/v1/firmware/${id}/`),
+  },
+  tokens: {
+    list: () => api.get<Paginated<ApiToken>>("/api/v1/auth/tokens/"),
+    create: (body: { name: string; scopes: string[] }) =>
+      api.post<ApiTokenWithPlaintext>("/api/v1/auth/tokens/", body),
+    delete: (id: string) => api.delete<void>(`/api/v1/auth/tokens/${id}/`),
   },
   audit: {
     list: (
