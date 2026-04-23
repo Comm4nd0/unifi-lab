@@ -2,6 +2,7 @@ import { Link, Outlet, useRouter } from "@tanstack/react-router";
 
 import { endpoints } from "../api/client";
 import { useAuth } from "../store/auth";
+import { CommandPalette } from "../components/CommandPalette";
 import { Button } from "../components/ui";
 
 const NAV = [
@@ -69,6 +70,13 @@ export function AppShell() {
             ))}
           </nav>
           <div className="ml-auto flex items-center gap-3 text-sm">
+            <span
+              className="hidden items-center gap-1 rounded border border-slate-800 bg-slate-900 px-2 py-0.5 text-[10px] text-slate-500 md:inline-flex"
+              title="Open command palette"
+            >
+              <kbd className="font-mono">⌘</kbd>
+              <kbd className="font-mono">K</kbd>
+            </span>
             {user && <span className="text-slate-400">{user.email}</span>}
             <Button variant="ghost" size="sm" onClick={logout}>
               Sign out
@@ -79,6 +87,7 @@ export function AppShell() {
       <main className="mx-auto max-w-6xl px-6 py-8">
         <Outlet />
       </main>
+      <CommandPalette />
     </div>
   );
 }
