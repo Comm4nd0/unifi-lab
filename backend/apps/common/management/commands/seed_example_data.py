@@ -3,8 +3,9 @@
 Creates:
 - An admin user (from UVL_ADMIN_EMAIL / UVL_ADMIN_PASSWORD env or defaults).
 - A "Localhost Lab" ControllerTarget pointing at 127.0.0.1 (placeholder creds).
-- A handful of DeviceTemplates (USW24P250, U6-Pro, UDR) so the device-create
-  form has a model list.
+- A trio of "starter" DeviceTemplates (USW24P250, U6-Pro, UDR). The full
+  catalog is seeded by ``apps/templates/migrations/0002_seed_core_catalog.py``
+  so every environment gets the same list without needing this command.
 
 Idempotent — re-running it updates missing rows without duplicating.
 """
@@ -19,7 +20,7 @@ from django.core.management.base import BaseCommand, CommandError
 from apps.controllers.models import ControllerTarget
 from apps.templates.models import DeviceTemplate
 
-SAMPLE_TEMPLATES = [
+STARTER_TEMPLATES = [
     {
         "model_code": "USW24P250",
         "model_display": "UniFi Switch 24 PoE (250W)",
@@ -60,7 +61,7 @@ class Command(BaseCommand):
         else:
             self.stdout.write(f"admin {email} already exists")
 
-        for tmpl in SAMPLE_TEMPLATES:
+        for tmpl in STARTER_TEMPLATES:
             obj, tmpl_created = DeviceTemplate.objects.update_or_create(
                 model_code=tmpl["model_code"],
                 defaults={

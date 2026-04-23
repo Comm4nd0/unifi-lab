@@ -246,18 +246,19 @@ export function BlueprintEditorPage() {
         {formError && <span className="text-sm text-red-400">{formError}</span>}
       </div>
 
-      <Card className="mt-6">
-        <h3 className="text-sm font-medium uppercase tracking-wide text-slate-400">
-          Topology preview
-        </h3>
-        <div className="mt-3">
-          <BlueprintTopology parsed={validation?.parsed ?? existing.data?.parsed_json ?? null} />
-        </div>
-        <p className="mt-3 text-xs text-slate-500">
-          Read-only view of the last validated blueprint. In canvas mode the preview mirrors what
-          you're building; in YAML mode it refreshes on each validate.
-        </p>
-      </Card>
+      {view === "yaml" && (
+        <Card className="mt-6">
+          <h3 className="text-sm font-medium uppercase tracking-wide text-slate-400">
+            Topology preview
+          </h3>
+          <div className="mt-3">
+            <BlueprintTopology parsed={validation?.parsed ?? existing.data?.parsed_json ?? null} />
+          </div>
+          <p className="mt-3 text-xs text-slate-500">
+            Read-only mirror of the last validated blueprint. Refreshes on each validate.
+          </p>
+        </Card>
+      )}
     </>
   );
 }
