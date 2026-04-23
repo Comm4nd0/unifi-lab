@@ -76,6 +76,7 @@ function BlueprintCanvasNode({ data, id }: NodeProps) {
     device: BlueprintDevice;
     family: string;
     onRename: (hostname: string, next: string) => boolean;
+    onDelete: (hostname: string) => void;
   };
   const color = FAMILY_COLOR[d.family] ?? FAMILY_COLOR.other;
   const glyph = FAMILY_GLYPH[d.family] ?? FAMILY_GLYPH.other;
@@ -111,12 +112,25 @@ function BlueprintCanvasNode({ data, id }: NodeProps) {
 
   return (
     <div
-      className="rounded-md border bg-slate-900 px-3 py-2 text-xs shadow"
+      className="group relative rounded-md border bg-slate-900 px-3 py-2 text-xs shadow"
       style={{ borderColor: clash ? "#dc2626" : color }}
       data-id={id}
     >
       <Handle type="target" position={Position.Left} id="in" />
       <Handle type="source" position={Position.Right} id="out" />
+      <button
+        type="button"
+        aria-label={`Delete ${d.device.hostname}`}
+        title="Delete device"
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          d.onDelete(d.device.hostname);
+        }}
+        className="absolute -right-2 -top-2 hidden h-5 w-5 items-center justify-center rounded-full border border-slate-700 bg-slate-800 text-xs text-slate-300 shadow hover:border-red-600 hover:bg-red-900/60 hover:text-red-200 group-hover:flex"
+      >
+        ×
+      </button>
       <div className="flex items-center gap-2">
         <span className="text-base" style={{ color }}>
           {glyph}
@@ -168,6 +182,7 @@ const nodeTypes = {
 function buildGraph(
   doc: BlueprintDoc,
   onRename: (hostname: string, next: string) => boolean,
+  onDelete: (hostname: string) => void,
 ): { nodes: Node[]; edges: Edge[] } {
   const { devices } = doc;
   const byHost: Record<string, BlueprintDevice> = {};
@@ -210,7 +225,7 @@ function buildGraph(
         id: hostname,
         type: "bp",
         position: { x: COL_WIDTH * col, y: ROW_HEIGHT * row },
-        data: { device, family, onRename },
+        data: { device, family, onRename, onDelete },
         draggable: true,
       });
       const parentHost = device.uplink && byHost[device.uplink] ? device.uplink : null;
@@ -250,7 +265,26 @@ function BlueprintCanvasInner({ doc, onChange }: Props) {
     [onChange],
   );
 
-  const initial = useMemo(() => buildGraph(doc, rename), [doc, rename]);
+  const deleteByHostname = useCallback(
+    (hostname: string) => {
+      if (!hostname || hostname === ROOT_ID) return;
+      const next = removeDevice(docRef.current, hostname);
+      if (next !== docRef.current) onChange(next);
+      setSelectedHostname((prev) => (prev === hostname ? null : prev));
+      setContextMenu(null);
+    },
+    [onChange],
+  );
+
+  const [selectedHostname, setSelectedHostname] = useState<string | null>(null);
+  const [contextMenu, setContextMenu] = useState<
+    { x: number; y: number; hostname: string } | null
+  >(null);
+
+  const initial = useMemo(
+    () => buildGraph(doc, rename, deleteByHostname),
+    [doc, rename, deleteByHostname],
+  );
   const [nodes, setNodes, onNodesChange] = useNodesState(initial.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initial.edges);
 
@@ -331,30 +365,98 @@ function BlueprintCanvasInner({ doc, onChange }: Props) {
         next = removeDevice(next, hostname);
       }
       if (next !== docRef.current) onChange(next);
+      setSelectedHostname(null);
     },
     [onChange],
   );
 
+  const onNodeClick = useCallback((_e: React.MouseEvent, node: Node) => {
+    setContextMenu(null);
+    setSelectedHostname(node.id === ROOT_ID ? null : node.id);
+  }, []);
+
+  const onNodeContextMenu = useCallback((e: React.MouseEvent, node: Node) => {
+    e.preventDefault();
+    if (node.id === ROOT_ID) return;
+    setContextMenu({ x: e.clientX, y: e.clientY, hostname: node.id });
+    setSelectedHostname(node.id);
+  }, []);
+
+  const onPaneClick = useCallback(() => {
+    setContextMenu(null);
+    setSelectedHostname(null);
+  }, []);
+
+  // Close the context menu if the user clicks outside it.
+  useEffect(() => {
+    if (!contextMenu) return;
+    const close = () => setContextMenu(null);
+    window.addEventListener("click", close);
+    window.addEventListener("scroll", close, true);
+    return () => {
+      window.removeEventListener("click", close);
+      window.removeEventListener("scroll", close, true);
+    };
+  }, [contextMenu]);
+
   return (
-    <div className="h-[28rem] w-full" onDragOver={onDragOver} onDrop={onDrop}>
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
-        onNodesDelete={onNodesDelete}
-        nodeTypes={nodeTypes}
-        defaultEdgeOptions={{ type: "default" }}
-        fitView
-        proOptions={{ hideAttribution: true }}
-        minZoom={0.25}
-        colorMode="dark"
-        deleteKeyCode={["Delete", "Backspace"]}
-      >
-        <Background gap={16} color="#1e293b" />
-        <Controls showInteractive={false} position="bottom-right" />
-      </ReactFlow>
+    <div className="relative w-full" onDragOver={onDragOver} onDrop={onDrop}>
+      <div className="flex items-center gap-2 border-b border-slate-800 bg-slate-900/60 px-3 py-2">
+        <span className="text-xs text-slate-500">
+          {selectedHostname
+            ? `Selected: ${selectedHostname}`
+            : "Click a node to select · right-click for actions · hover for delete"}
+        </span>
+        <button
+          type="button"
+          onClick={() => selectedHostname && deleteByHostname(selectedHostname)}
+          disabled={!selectedHostname}
+          className="ml-auto inline-flex h-7 items-center rounded border border-slate-700 bg-slate-800 px-3 text-xs text-slate-200 transition hover:border-red-600 hover:bg-red-900/40 hover:text-red-200 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-700 disabled:hover:bg-slate-800 disabled:hover:text-slate-200"
+        >
+          Delete selected
+        </button>
+      </div>
+      <div className="h-[28rem] w-full">
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onConnect={onConnect}
+          onNodesDelete={onNodesDelete}
+          onNodeClick={onNodeClick}
+          onNodeContextMenu={onNodeContextMenu}
+          onPaneClick={onPaneClick}
+          nodeTypes={nodeTypes}
+          defaultEdgeOptions={{ type: "default" }}
+          fitView
+          proOptions={{ hideAttribution: true }}
+          minZoom={0.25}
+          colorMode="dark"
+          deleteKeyCode={["Delete", "Backspace"]}
+        >
+          <Background gap={16} color="#1e293b" />
+          <Controls showInteractive={false} position="bottom-right" />
+        </ReactFlow>
+      </div>
+      {contextMenu && (
+        <ul
+          className="fixed z-50 min-w-[10rem] rounded-md border border-slate-700 bg-slate-900 py-1 text-xs shadow-lg"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <li>
+            <button
+              type="button"
+              onClick={() => deleteByHostname(contextMenu.hostname)}
+              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-slate-200 hover:bg-red-900/40 hover:text-red-200"
+            >
+              <span aria-hidden>×</span>
+              Delete {contextMenu.hostname}
+            </button>
+          </li>
+        </ul>
+      )}
     </div>
   );
 }
