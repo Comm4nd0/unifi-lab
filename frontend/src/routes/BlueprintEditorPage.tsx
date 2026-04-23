@@ -7,6 +7,7 @@ import {
   endpoints,
   type BlueprintValidationResult,
 } from "../api/client";
+import { BlueprintTopology } from "../components/BlueprintTopology";
 import { Button, Card, Input, Label, PageHeader } from "../components/ui";
 
 const EXAMPLE = `schema_version: uvl-blueprint/v1
@@ -64,6 +65,16 @@ export function BlueprintEditorPage() {
     mutationFn: (yaml: string) => endpoints.blueprints.validate(yaml),
     onSuccess: (result) => setValidation(result),
   });
+
+  // Kick off an initial validate so the topology preview populates
+  // without requiring the user to click Validate first.
+  useEffect(() => {
+    if (source && !validation && !validate.isPending) {
+      validate.mutate(source);
+    }
+    // Only want this on first render / when the loaded source arrives.
+
+  }, [existing.data]);
 
   const save = useMutation({
     mutationFn: () => {
@@ -198,6 +209,25 @@ export function BlueprintEditorPage() {
           )}
         </Card>
       </div>
+
+      <Card className="mt-6">
+        <div className="flex items-baseline justify-between gap-2">
+          <h3 className="text-sm font-medium uppercase tracking-wide text-slate-400">
+            Topology preview
+          </h3>
+          {!validation && (
+            <span className="text-xs text-slate-500">Click Validate to refresh the preview.</span>
+          )}
+        </div>
+        <div className="mt-3">
+          <BlueprintTopology parsed={validation?.parsed ?? existing.data?.parsed_json ?? null} />
+        </div>
+        <p className="mt-3 text-xs text-slate-500">
+          Lays out declared devices using{" "}
+          <span className="font-mono">site.devices[].uplink</span>. This is the topology that will
+          be instantiated when a fleet spawns from this blueprint.
+        </p>
+      </Card>
     </>
   );
 }
