@@ -12,6 +12,7 @@ import logging
 
 from celery import shared_task
 
+from .events import publish_fleet_event
 from .models import Fleet
 
 log = logging.getLogger("uvl.fleets.tasks")
@@ -37,4 +38,10 @@ def transition_fleet_to_active(fleet_id: str) -> None:
         return
     fleet.state = Fleet.STATE_ACTIVE
     fleet.save(update_fields=["state"])
+    publish_fleet_event(
+        str(fleet.id),
+        "fleet.state_changed",
+        state=fleet.state,
+        device_count=fleet.device_count,
+    )
     log.info("transition_to_active.done", extra={"fleet_id": fleet_id})

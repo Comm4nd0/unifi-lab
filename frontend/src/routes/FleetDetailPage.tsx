@@ -1,12 +1,41 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { endpoints } from "../api/client";
+import { useChannel } from "../api/ws";
 import { TopologyGraph } from "../components/TopologyGraph";
 import { Button, Card, EmptyState, PageHeader, StateChip } from "../components/ui";
 
 type Tab = "overview" | "topology" | "devices";
+
+const READY_STATES = new Set(["adopted", "heartbeat"]);
+
+function rampProgress(deviceStates: Record<string, number>, deviceCount: number): number {
+  if (!deviceCount) return 0;
+  let ready = 0;
+  for (const [state, count] of Object.entries(deviceStates)) {
+    if (READY_STATES.has(state)) ready += count;
+  }
+  return Math.min(100, Math.round((ready / deviceCount) * 100));
+}
+
+function ProgressBar({ percent }: { percent: number }) {
+  return (
+    <div className="mt-3">
+      <div className="flex items-center justify-between text-xs text-slate-400">
+        <span>Ramp progress</span>
+        <span className="font-mono">{percent}%</span>
+      </div>
+      <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-slate-800">
+        <div
+          className="h-full rounded-full bg-emerald-500 transition-[width] duration-500"
+          style={{ width: `${percent}%` }}
+        />
+      </div>
+    </div>
+  );
+}
 
 export function FleetDetailPage() {
   const { id } = useParams({ from: "/_app/fleets/$id" });
@@ -18,12 +47,24 @@ export function FleetDetailPage() {
   const fleet = useQuery({
     queryKey: ["fleets", id],
     queryFn: () => endpoints.fleets.get(id),
-    refetchInterval: 5_000,
   });
   const devices = useQuery({ queryKey: ["devices"], queryFn: endpoints.devices.list });
   const controllers = useQuery({ queryKey: ["controllers"], queryFn: endpoints.controllers.list });
 
-  // Fetch the blueprint only when the fleet has one — topology uses uplinks.
+  // Live push via the fleet channel.
+  const { state: wsState, messages } = useChannel({ path: `/ws/fleets/${id}/` });
+
+  // Invalidate fleet + device queries whenever a new WS event arrives so
+  // the device_states breakdown and row statuses stay fresh without polling.
+  const lastSeenCount = useRef(0);
+  useEffect(() => {
+    if (messages.length > lastSeenCount.current) {
+      lastSeenCount.current = messages.length;
+      qc.invalidateQueries({ queryKey: ["fleets", id] });
+      qc.invalidateQueries({ queryKey: ["devices"] });
+    }
+  }, [messages.length, id, qc]);
+
   const blueprint = useQuery({
     queryKey: ["blueprints", fleet.data?.blueprint],
     queryFn: () => endpoints.blueprints.get(fleet.data!.blueprint!),
@@ -57,6 +98,9 @@ export function FleetDetailPage() {
   const blueprintIdForLink = f.blueprint;
   const stateEntries = Object.entries(f.device_states ?? {});
   const busy = pause.isPending || resume.isPending || tear.isPending;
+  const showProgress =
+    f.device_count > 0 && (f.state === "ramping" || f.state === "active");
+  const percent = rampProgress(f.device_states ?? {}, f.device_count);
 
   const tabs: { id: Tab; label: string }[] = [
     { id: "overview", label: "Overview" },
@@ -114,6 +158,10 @@ export function FleetDetailPage() {
             {t.label}
           </button>
         ))}
+        <div className="ml-auto flex items-center gap-2 text-xs text-slate-500">
+          <span>Live:</span>
+          <StateChip state={wsState} />
+        </div>
       </nav>
 
       {tab === "overview" && (
@@ -166,6 +214,7 @@ export function FleetDetailPage() {
                 {new Date(f.created_at).toLocaleString()}
               </dd>
             </dl>
+            {showProgress && <ProgressBar percent={percent} />}
           </Card>
 
           <Card>
@@ -190,9 +239,7 @@ export function FleetDetailPage() {
 
       {tab === "topology" && (
         <Card>
-          <h3 className="text-sm font-medium uppercase tracking-wide text-slate-400">
-            Topology
-          </h3>
+          <h3 className="text-sm font-medium uppercase tracking-wide text-slate-400">Topology</h3>
           <p className="mt-1 text-xs text-slate-500">
             Controller → devices. Blueprint-driven fleets lay out according to{" "}
             <span className="font-mono">site.devices[].uplink</span>; simple fleets fan out from

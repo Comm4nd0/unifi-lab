@@ -4,8 +4,9 @@ Splits fleet lifecycle across the process boundary per
 ``Components/23 - Fleet Manager``:
 
 - Django (this module) — validation, creating Fleet + VirtualDevice rows,
-  publishing work to the worker via ``worker_commands``, and scheduling
-  the state-transition task via Celery countdown.
+  publishing work to the worker via ``worker_commands``, scheduling the
+  state-transition task via Celery countdown, and fanning out fleet
+  events onto the Channels layer for live UI updates.
 - Worker (``engine.supervisor``) — spawning tasks, honouring per-spawn
   ``delay_ms``, auto-adoption loop, teardown.
 """
@@ -22,6 +23,7 @@ from django.utils import timezone
 from apps.common.worker_commands import CHANNEL_DEVICES, publish_worker_command
 from apps.devices.services import create_device, deterministic_mac
 
+from .events import publish_fleet_event
 from .models import Fleet
 from .ramp import compute_delays, ramp_duration_ms
 from .tasks import transition_fleet_to_active
@@ -31,6 +33,15 @@ _MAC_RE = re.compile(r"^([0-9a-f]{2}:){5}[0-9a-f]{2}$")
 
 def _slugify(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
+
+
+def _emit_state(fleet: Fleet) -> None:
+    publish_fleet_event(
+        str(fleet.id),
+        "fleet.state_changed",
+        state=fleet.state,
+        device_count=fleet.device_count,
+    )
 
 
 def instantiate_fleet(fleet: Fleet) -> list[str]:
@@ -54,6 +65,8 @@ def instantiate_fleet(fleet: Fleet) -> list[str]:
             fleet.save(update_fields=["device_count"])
         else:
             device_ids = _instantiate_simple(fleet)
+
+    _emit_state(fleet)
 
     delays = compute_delays(len(device_ids), fleet.ramp_spec)
     for device_id, delay_ms in zip(device_ids, delays, strict=False):
@@ -117,6 +130,7 @@ def pause(fleet: Fleet) -> Fleet:
     fleet.save(update_fields=["state"])
     for device in fleet.devices.all():
         publish_worker_command(CHANNEL_DEVICES, action="despawn", device_id=str(device.id))
+    _emit_state(fleet)
     return fleet
 
 
@@ -125,6 +139,7 @@ def resume(fleet: Fleet) -> Fleet:
     fleet.save(update_fields=["state"])
     for device in fleet.devices.all():
         publish_worker_command(CHANNEL_DEVICES, action="spawn", device_id=str(device.id))
+    _emit_state(fleet)
     return fleet
 
 
@@ -133,8 +148,10 @@ def teardown(fleet: Fleet) -> Fleet:
     fleet.state = Fleet.STATE_TEARING_DOWN
     fleet.retired_at = timezone.now()
     fleet.save(update_fields=["state", "retired_at"])
+    _emit_state(fleet)
     for device in fleet.devices.all():
         publish_worker_command(CHANNEL_DEVICES, action="despawn", device_id=str(device.id))
     fleet.state = Fleet.STATE_DELETED
     fleet.save(update_fields=["state"])
+    _emit_state(fleet)
     return fleet
