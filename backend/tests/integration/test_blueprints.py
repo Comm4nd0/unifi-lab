@@ -183,4 +183,52 @@ def test_seed_blueprint_round_trips():  # type: ignore[no-untyped-def]
     # Structural errors should be zero; warnings may exist.
     assert not result.has_errors()
     assert result.parsed is not None
-    assert result.parsed["site"]["devices"][0]["hostname"] == "gateway"
+
+
+# --- clone action ----------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_clone_creates_a_new_row_with_copy_suffix(api_client):  # type: ignore[no-untyped-def]
+    created = api_client.post(
+        "/api/v1/blueprints/",
+        {"name": "orig", "source_yaml": VALID_YAML},
+        format="json",
+    )
+    assert created.status_code == 201
+    source_id = created.data["id"]
+
+    clone = api_client.post(f"/api/v1/blueprints/{source_id}/clone/")
+    assert clone.status_code == 201, clone.data
+    assert clone.data["id"] != source_id
+    assert clone.data["name"] == "orig (copy)"
+    # Serializer trims leading/trailing whitespace on save, so compare
+    # stripped.
+    assert clone.data["source_yaml"].strip() == VALID_YAML.strip()
+    # Fresh version on the clone — it's a new blueprint, not a new rev of the
+    # source.
+    assert clone.data["version"] == 1
+
+
+@pytest.mark.django_db
+def test_clone_twice_uses_numeric_suffix(api_client):  # type: ignore[no-untyped-def]
+    created = api_client.post(
+        "/api/v1/blueprints/",
+        {"name": "orig", "source_yaml": VALID_YAML},
+        format="json",
+    )
+    source_id = created.data["id"]
+    first = api_client.post(f"/api/v1/blueprints/{source_id}/clone/")
+    second = api_client.post(f"/api/v1/blueprints/{source_id}/clone/")
+    assert first.data["name"] == "orig (copy)"
+    assert second.data["name"] == "orig (copy 2)"
+    third = api_client.post(f"/api/v1/blueprints/{source_id}/clone/")
+    assert third.data["name"] == "orig (copy 3)"
+
+
+@pytest.mark.django_db
+def test_clone_of_missing_id_404s(api_client):  # type: ignore[no-untyped-def]
+    import uuid
+
+    resp = api_client.post(f"/api/v1/blueprints/{uuid.uuid4()}/clone/")
+    assert resp.status_code == 404

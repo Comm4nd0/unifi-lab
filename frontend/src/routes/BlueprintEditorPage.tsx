@@ -128,6 +128,33 @@ export function BlueprintEditorPage() {
     },
   });
 
+  const cloneMut = useMutation({
+    mutationFn: () => endpoints.blueprints.clone(params.id!),
+    onSuccess: (blueprint) => {
+      qc.invalidateQueries({ queryKey: ["blueprints"] });
+      navigate({ to: "/blueprints/$id", params: { id: blueprint.id } });
+    },
+  });
+
+  const exportYaml = () => {
+    // Prefer the current in-editor source over the saved copy so users
+    // can export unsaved drafts. Filename follows the internal name
+    // sanitised to something filesystem-friendly.
+    const filename = (name || existing.data?.name || "blueprint")
+      .toLowerCase()
+      .replace(/[^a-z0-9._-]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+    const blob = new Blob([source], { type: "application/x-yaml" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${filename || "blueprint"}.yaml`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
   const onCanvasChange = (next: BlueprintDoc) => {
     setSource(stringifyBlueprint(next));
   };
@@ -149,6 +176,19 @@ export function BlueprintEditorPage() {
               ← All blueprints
             </Link>
             <ViewToggle view={view} onChange={setView} />
+            <Button size="sm" variant="ghost" onClick={exportYaml}>
+              Export YAML
+            </Button>
+            {!isNew && (
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => cloneMut.mutate()}
+                disabled={cloneMut.isPending}
+              >
+                {cloneMut.isPending ? "Cloning…" : "Clone"}
+              </Button>
+            )}
             {!isNew && (
               <Button
                 size="sm"

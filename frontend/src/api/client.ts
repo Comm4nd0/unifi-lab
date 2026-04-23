@@ -305,6 +305,7 @@ export const endpoints = {
     delete: (id: string) => api.delete<void>(`/api/v1/blueprints/${id}/`),
     validate: (source_yaml: string) =>
       api.post<BlueprintValidationResult>("/api/v1/blueprints/validate/", { source_yaml }),
+    clone: (id: string) => api.post<Blueprint>(`/api/v1/blueprints/${id}/clone/`),
   },
   traffic: {
     profiles: {
