@@ -16,6 +16,7 @@ class EngineConfig:
     redis_url: str
     channels_layer_url: str
     django_api_base: str
+    worker_token: str
     log_level: str
 
     @classmethod
@@ -27,5 +28,6 @@ class EngineConfig:
             redis_url=os.environ.get("UVL_REDIS_URL", "redis://localhost:6379/0"),
             channels_layer_url=os.environ.get("UVL_CHANNELS_LAYER_URL", "redis://localhost:6379/2"),
             django_api_base=os.environ.get("UVL_DJANGO_API_BASE", "http://localhost:8003"),
+            worker_token=os.environ.get("UVL_WORKER_TOKEN", ""),
             log_level=os.environ.get("UVL_LOG_LEVEL", "INFO"),
         )

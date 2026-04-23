@@ -26,6 +26,7 @@ import logging
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from .clients.django_api import DjangoApiClient
 from .clients.unifi import UnifiApiError, UosServerClient
 from .config import EngineConfig
 from .crypto import decrypt
@@ -52,9 +53,10 @@ class Supervisor:
         self._stop = asyncio.Event()
         self._engine: AsyncEngine | None = engine
         self._sessionmaker = make_sessionmaker(engine) if engine is not None else None
-        # Factory override for testing so the suite can inject a fake
-        # UosServerClient without patching imports.
+        # Factory overrides for testing so the suite can inject fakes
+        # without patching imports.
         self.client_factory = self._default_client_factory
+        self.django_client_factory = self._default_django_client_factory
 
     # --- lifecycle -----------------------------------------------------
 
@@ -188,6 +190,28 @@ class Supervisor:
             verify_tls=ctrl.verify_tls,
         )
 
+    def _default_django_client_factory(self) -> DjangoApiClient:
+        return DjangoApiClient(
+            base_url=self.cfg.django_api_base,
+            token=self.cfg.worker_token,
+        )
+
+    async def _notify_adopted(self, device_id: str) -> None:
+        """Call Django back to flip VirtualDevice.state to 'adopted'."""
+        try:
+            client = self.django_client_factory()
+        except Exception:
+            log.exception("auto_adopt.notify.construct_failed", extra={"device_id": device_id})
+            return
+        try:
+            await client.mark_device_adopted(device_id)
+            log.info("auto_adopt.notify.ok", extra={"device_id": device_id})
+        except Exception:
+            # Non-fatal: the controller already adopted the device. Django
+            # state stays 'pending' until someone fixes the callback config,
+            # which is visible in admin/logs.
+            log.exception("auto_adopt.notify.failed", extra={"device_id": device_id})
+
     async def _load_adopt_context(
         self, device_id: str
     ) -> tuple[str | None, ControllerTarget | None]:
@@ -231,6 +255,7 @@ class Supervisor:
                     "auto_adopt.ok",
                     extra={"device_id": device_id, "mac": mac, "attempts": attempt},
                 )
+                await self._notify_adopted(device_id)
                 return
             except UnifiApiError as exc:
                 # 4xx (bad creds, bad payload) won't get better with retries.

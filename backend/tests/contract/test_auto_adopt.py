@@ -17,6 +17,7 @@ def _cfg() -> EngineConfig:
         redis_url="redis://localhost/0",
         channels_layer_url="redis://localhost/2",
         django_api_base="http://localhost:8003",
+        worker_token="worker-token-for-tests",
         log_level="INFO",
     )
 
@@ -78,13 +79,34 @@ class _FakeClient:
             raise self.adopt_error
 
 
+class _FakeDjango:
+    """Captures mark_device_adopted calls so the success path can verify them."""
+
+    def __init__(self, *, raises: Exception | None = None) -> None:
+        self.mark_calls: list[str] = []
+        self._raises = raises
+
+    async def mark_device_adopted(self, device_id: str) -> dict:
+        self.mark_calls.append(device_id)
+        if self._raises is not None:
+            raise self._raises
+        return {"id": device_id, "state": "adopted"}
+
+
 async def _invoke_adopt(
-    supervisor: Supervisor, fake: _FakeClient, mac: str = "02:00:00:aa:bb:cc"
-) -> None:
+    supervisor: Supervisor,
+    fake: _FakeClient,
+    *,
+    mac: str = "02:00:00:aa:bb:cc",
+    django: _FakeDjango | None = None,
+) -> _FakeDjango:
     ctrl = _FakeCtrl()
     supervisor.client_factory = lambda c: fake  # type: ignore[assignment]
+    django = django or _FakeDjango()
+    supervisor.django_client_factory = lambda: django  # type: ignore[assignment]
     supervisor._load_adopt_context = AsyncMock(return_value=(mac, ctrl))  # type: ignore[method-assign]
     await supervisor._auto_adopt_device("dev-1")
+    return django
 
 
 @pytest.mark.asyncio
@@ -92,9 +114,11 @@ async def test_happy_path_calls_login_then_adopt(monkeypatch):  # type: ignore[n
     monkeypatch.setattr("asyncio.sleep", AsyncMock())
     sup = Supervisor(_cfg())
     fake = _FakeClient()
-    await _invoke_adopt(sup, fake)
+    django = await _invoke_adopt(sup, fake)
     assert fake.login_calls == 1
     assert fake.adopt_calls == ["02:00:00:aa:bb:cc"]
+    # Successful adopt must notify Django so the row flips to 'adopted'.
+    assert django.mark_calls == ["dev-1"]
     await sup.shutdown()
 
 
@@ -104,10 +128,12 @@ async def test_client_error_is_not_retried(monkeypatch):  # type: ignore[no-unty
     monkeypatch.setattr("asyncio.sleep", sleep)
     sup = Supervisor(_cfg())
     fake = _FakeClient(adopt_error=UnifiApiError(403, "forbidden"))
-    await _invoke_adopt(sup, fake)
+    django = await _invoke_adopt(sup, fake)
     assert fake.login_calls == 1  # only one attempt total
     assert fake.adopt_calls == ["02:00:00:aa:bb:cc"]
     assert sleep.await_count == 0
+    # Failed adopt must NOT notify Django.
+    assert django.mark_calls == []
     await sup.shutdown()
 
 
@@ -118,9 +144,11 @@ async def test_transient_server_error_retries_then_succeeds(monkeypatch):  # typ
     sup = Supervisor(_cfg())
     # Fail the first two adopt calls (5xx), succeed on the third.
     fake = _FakeClient(adopt_error=UnifiApiError(503, "busy"), adopt_error_on_attempt=2)
-    await _invoke_adopt(sup, fake)
+    django = await _invoke_adopt(sup, fake)
     assert len(fake.adopt_calls) == 3
     assert sleep.await_count == 2  # backoff between attempts 1-2 and 2-3
+    # Eventual success still fires the mark-adopted callback.
+    assert django.mark_calls == ["dev-1"]
     await sup.shutdown()
 
 
@@ -129,8 +157,26 @@ async def test_gives_up_after_max_attempts(monkeypatch):  # type: ignore[no-unty
     monkeypatch.setattr("asyncio.sleep", AsyncMock())
     sup = Supervisor(_cfg())
     fake = _FakeClient(adopt_error=UnifiApiError(503, "busy"))
-    await _invoke_adopt(sup, fake)
+    django = await _invoke_adopt(sup, fake)
     assert len(fake.adopt_calls) == 4  # AUTO_ADOPT_MAX_ATTEMPTS
+    # Giving up means no mark-adopted — device stays pending.
+    assert django.mark_calls == []
+    await sup.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_notify_failure_is_non_fatal(monkeypatch):  # type: ignore[no-untyped-def]
+    monkeypatch.setattr("asyncio.sleep", AsyncMock())
+    sup = Supervisor(_cfg())
+    fake = _FakeClient()
+    # Django callback throws — adopt itself still succeeded, the
+    # supervisor should swallow and move on without raising.
+    django = _FakeDjango(raises=RuntimeError("django unreachable"))
+    out = await _invoke_adopt(sup, fake, django=django)
+    # Callback was attempted, but raised — captured by our fake.
+    assert out.mark_calls == ["dev-1"]
+    # Adopt itself still recorded one successful call.
+    assert fake.adopt_calls == ["02:00:00:aa:bb:cc"]
     await sup.shutdown()
 
 

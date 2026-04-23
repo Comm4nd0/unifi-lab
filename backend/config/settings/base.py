@@ -33,6 +33,12 @@ CSRF_TRUSTED_ORIGINS = [
 FERNET_KEY = os.environ.get("UVL_FERNET_KEY", "")
 FERNET_KEY_PREV = os.environ.get("UVL_FERNET_KEY_PREV", "")
 
+# ── Worker ↔ Django shared bearer ─────────────────────────────────
+# The asyncio worker uses this to call back into Django after a
+# successful adopt so the device state flips without a user request.
+# Empty => the callback endpoint rejects everything.
+WORKER_TOKEN = os.environ.get("UVL_WORKER_TOKEN", "")
+
 # ── Installed apps ────────────────────────────────────────────────
 INSTALLED_APPS = [
     "daphne",

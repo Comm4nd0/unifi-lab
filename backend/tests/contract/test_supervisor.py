@@ -17,6 +17,7 @@ def _cfg() -> EngineConfig:
         redis_url="redis://localhost/0",
         channels_layer_url="redis://localhost/2",
         django_api_base="http://localhost:8003",
+        worker_token="",
         log_level="INFO",
     )
 

@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.request import Request
 from rest_framework.response import Response
 
+from apps.common.permissions import IsWorkerRequest
 from apps.common.worker_commands import CHANNEL_DEVICES, publish_worker_command
 
 from .models import VirtualDevice
@@ -85,4 +87,30 @@ class VirtualDeviceViewSet(viewsets.ModelViewSet):
             action="spawn",
             device_id=str(device.id),
         )
+        return Response(VirtualDeviceSerializer(device).data)
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="mark-adopted",
+        authentication_classes=[],
+        permission_classes=[IsWorkerRequest],
+    )
+    def mark_adopted(self, request: Request, pk: str | None = None) -> Response:
+        """Worker callback — the controller has accepted this device.
+
+        Flips state to ``adopted`` and bumps ``last_heartbeat_at``. Gated
+        on the worker's shared bearer (``UVL_WORKER_TOKEN``) — no user
+        session or JWT required. Idempotent: subsequent calls with the
+        device already adopted just return the current row.
+
+        Authentication classes are blanked so DRF's JWTAuthentication
+        doesn't try to parse the worker's bearer as a JWT (which would
+        401 before the permission check runs).
+        """
+        device = self.get_object()
+        if device.state != VirtualDevice.STATE_ADOPTED:
+            device.state = VirtualDevice.STATE_ADOPTED
+            device.last_heartbeat_at = timezone.now()
+            device.save(update_fields=["state", "last_heartbeat_at"])
         return Response(VirtualDeviceSerializer(device).data)
