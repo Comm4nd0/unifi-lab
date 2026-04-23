@@ -178,6 +178,17 @@ export type BlueprintValidationResult = {
   issues: BlueprintValidationIssue[];
 };
 
+export type AuditLog = {
+  id: string;
+  actor: string | null;
+  action: string;
+  target_type: string;
+  target_id: string;
+  diff: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+  created_at: string;
+};
+
 export type FirmwareBlob = {
   id: string;
   filename: string;
@@ -341,6 +352,14 @@ export const endpoints = {
       return api.postForm<FirmwareBlob>("/api/v1/firmware/", form);
     },
     delete: (id: string) => api.delete<void>(`/api/v1/firmware/${id}/`),
+  },
+  audit: {
+    list: (params: { page_size?: number } = {}) => {
+      const qs = new URLSearchParams();
+      if (params.page_size) qs.set("page_size", String(params.page_size));
+      const q = qs.toString();
+      return api.get<Paginated<AuditLog>>(`/api/v1/audit/${q ? `?${q}` : ""}`);
+    },
   },
   fleets: {
     list: () => api.get<Paginated<Fleet>>("/api/v1/fleets/"),
