@@ -7,8 +7,6 @@ bytes-level tests live under ``tests/contract/`` once pcaps are committed.
 
 from __future__ import annotations
 
-import pytest
-
 
 def test_tnbu_constants_exported():
     from engine.protocol import tnbu
@@ -31,8 +29,12 @@ def test_codec_surface_exists():
     assert callable(crypto.decrypt_gcm)
 
 
-def test_codec_raises_until_implemented():
-    from engine.protocol import codec
+def test_codec_encodes_and_decodes_empty_payload():
+    from engine.protocol.codec import decode_inform, encode_inform
 
-    with pytest.raises(NotImplementedError):
-        codec.encode_inform(payload={}, key=b"\x00" * 16, mac=b"\x00" * 6)
+    key = b"\x00" * 16
+    mac = b"\x00" * 6
+    frame = encode_inform(payload={}, key=key, mac=mac, use_gcm=True)
+    assert frame.startswith(b"TNBU")
+    result = decode_inform(frame, key=key)
+    assert result == {}

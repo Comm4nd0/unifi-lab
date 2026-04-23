@@ -8,13 +8,13 @@ Usage:
         --model USW24P250 \\
         --mac 02:00:00:ab:cd:ef
 
-Phase 0 status: prints the flow it *would* execute. The inform protocol
-codec is not yet implemented, so this does not transmit anything. Once
-pcaps land, this script becomes the exit-criteria smoke test:
-
-    - Device appears as "pending" in the controller.
+Exit criteria (Phase 0):
+    - Device appears as "pending" in the controller UI.
     - User adopts via the controller UI.
-    - Script maintains steady heartbeat for >= 30 minutes.
+    - Script maintains a steady heartbeat for >= 30 minutes.
+
+The script logs each heartbeat and any key rotations so you can confirm the
+controller is responding without inspecting traffic.
 """
 
 from __future__ import annotations
@@ -25,6 +25,7 @@ import logging
 import secrets
 
 from engine.device import VirtualDevice, VirtualDeviceSpec
+from engine.inform_session import InformSession
 
 log = logging.getLogger("uvl.engine.scripts.solo_device")
 
@@ -40,12 +41,18 @@ def _default_serial(model: str) -> str:
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="UVL solo device smoke test (Phase 0)")
-    p.add_argument("--controller", required=True, help="Inform URL, e.g. https://192.168.1.50")
+    p.add_argument("--controller", required=True, help="Controller base URL, e.g. https://192.168.1.50")
     p.add_argument("--insecure", action="store_true", help="Skip TLS verification")
     p.add_argument("--model", default="USW24P250", help="Device model code")
     p.add_argument("--mac", default=None, help="Override MAC (default: random LAA)")
     p.add_argument("--serial", default=None, help="Override serial (default: derived from model)")
     p.add_argument("--firmware", default="8.3.42", help="Firmware version to report")
+    p.add_argument(
+        "--interval",
+        type=int,
+        default=InformSession.HEARTBEAT_INTERVAL_SECONDS,
+        help="Heartbeat interval in seconds",
+    )
     return p.parse_args()
 
 
@@ -69,17 +76,27 @@ async def _run(args: argparse.Namespace) -> int:
 
     device = VirtualDevice(spec)
     try:
+        log.info("solo_device.connecting  (device will appear as pending in controller UI)")
         await device.connect()
-        await device.heartbeat()
-        log.info("solo_device.ok  state=%s", device.state.value)
-        log.warning(
-            "solo_device.note  inform protocol codec is stubbed; no bytes transmitted. "
-            "Implement engine.protocol.codec once pcaps are available."
-        )
+        log.info("solo_device.connected  state=%s", device.state.value)
+        log.info("solo_device.hint  adopt the device in the controller UI now")
+
+        count = 0
+        while True:
+            await asyncio.sleep(args.interval)
+            await device.heartbeat()
+            count += 1
+            log.info(
+                "solo_device.heartbeat  n=%d state=%s adopted=%s",
+                count,
+                device.state.value,
+                not (device._session and device._session.using_default_key),
+            )
+
+    except KeyboardInterrupt:
+        log.info("solo_device.stop  reason=keyboard_interrupt  heartbeats=%d", count)
+        await device.disconnect()
         return 0
-    except NotImplementedError as exc:
-        log.error("solo_device.blocked  %s", exc)
-        return 2
     except Exception:
         log.exception("solo_device.error")
         return 1
