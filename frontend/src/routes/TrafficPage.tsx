@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { ApiError, endpoints, type TrafficProfile } from "../api/client";
 import { FlowRateChart } from "../components/FlowRateChart";
+import { YamlEditor } from "../components/YamlEditor";
 import {
   Button,
   Card,
@@ -223,12 +224,9 @@ function ProfileEditor({
         </div>
         <div>
           <Label>Source YAML</Label>
-          <textarea
-            className="mt-1 min-h-[24rem] w-full rounded-md border border-slate-700 bg-slate-950 p-3 font-mono text-xs text-slate-100 focus-visible:border-indigo-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-indigo-500"
-            value={source}
-            onChange={(e) => setSource(e.target.value)}
-            spellCheck={false}
-          />
+          <div className="mt-1">
+            <YamlEditor value={source} onChange={setSource} minHeight="24rem" />
+          </div>
         </div>
         {formError && <p className="text-sm text-red-400">{formError}</p>}
         <div className="flex gap-2">

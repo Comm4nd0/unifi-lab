@@ -10,6 +10,7 @@ import {
 import { BlueprintCanvas } from "../components/BlueprintCanvas";
 import { BlueprintTopology } from "../components/BlueprintTopology";
 import { DevicePalette } from "../components/DevicePalette";
+import { YamlEditor } from "../components/YamlEditor";
 import { Button, Card, Input, Label, PageHeader } from "../components/ui";
 import {
   parseBlueprintYaml,
@@ -178,12 +179,9 @@ export function BlueprintEditorPage() {
         <div className="grid gap-6 md:grid-cols-[1fr_22rem]">
           <Card>
             <Label>Source YAML</Label>
-            <textarea
-              className="mt-1 min-h-[28rem] w-full rounded-md border border-slate-700 bg-slate-950 p-3 font-mono text-xs text-slate-100 focus-visible:border-indigo-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-indigo-500"
-              value={source}
-              onChange={(e) => setSource(e.target.value)}
-              spellCheck={false}
-            />
+            <div className="mt-1">
+              <YamlEditor value={source} onChange={setSource} minHeight="28rem" />
+            </div>
           </Card>
           <Card>
             <h3 className="text-sm font-medium uppercase tracking-wide text-slate-400">
