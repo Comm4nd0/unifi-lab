@@ -1242,6 +1242,43 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/v1/devices/{id}/disconnect/:
+    post:
+      operationId: v1_devices_disconnect_create
+      description: Simulate a device disconnect — flips state, asks supervisor to
+        despawn.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this virtual device.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VirtualDeviceRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/VirtualDeviceRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/VirtualDeviceRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VirtualDevice'
+          description: ''
   /api/v1/devices/{id}/force-inform/:
     post:
       operationId: v1_devices_force_inform_create
@@ -1291,6 +1328,42 @@ paths:
         required: true
       tags:
       - v1
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VirtualDevice'
+          description: ''
+  /api/v1/devices/{id}/reconnect/:
+    post:
+      operationId: v1_devices_reconnect_create
+      description: Simulate a device reconnect — flips back to pending, re-spawns.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this virtual device.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VirtualDeviceRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/VirtualDeviceRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/VirtualDeviceRequest'
+        required: true
       security:
       - jwtAuth: []
       - cookieAuth: []

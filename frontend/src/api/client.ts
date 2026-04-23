@@ -234,6 +234,8 @@ export const endpoints = {
     delete: (id: string) => api.delete<void>(`/api/v1/devices/${id}/`),
     forceInform: (id: string) =>
       api.post<{ accepted: boolean; device_id: string }>(`/api/v1/devices/${id}/force-inform/`),
+    disconnect: (id: string) => api.post<VirtualDevice>(`/api/v1/devices/${id}/disconnect/`),
+    reconnect: (id: string) => api.post<VirtualDevice>(`/api/v1/devices/${id}/reconnect/`),
   },
   templates: {
     list: () => api.get<Paginated<DeviceTemplate>>("/api/v1/templates/"),

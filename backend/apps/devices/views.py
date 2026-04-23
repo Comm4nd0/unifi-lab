@@ -32,7 +32,6 @@ class VirtualDeviceViewSet(viewsets.ModelViewSet):
             fleet_id=str(data["fleet"].id) if data.get("fleet") else None,
         )
         serializer.instance = device
-        # Tell the supervisor there's a new pending device to spawn.
         publish_worker_command(
             CHANNEL_DEVICES,
             action="spawn",
@@ -61,3 +60,29 @@ class VirtualDeviceViewSet(viewsets.ModelViewSet):
             {"accepted": True, "device_id": str(device.id)},
             status=status.HTTP_202_ACCEPTED,
         )
+
+    @action(detail=True, methods=["post"])
+    def disconnect(self, request: Request, pk: str | None = None) -> Response:
+        """Simulate a device disconnect — flips state, asks supervisor to despawn."""
+        device = self.get_object()
+        device.state = VirtualDevice.STATE_DISCONNECTED
+        device.save(update_fields=["state"])
+        publish_worker_command(
+            CHANNEL_DEVICES,
+            action="despawn",
+            device_id=str(device.id),
+        )
+        return Response(VirtualDeviceSerializer(device).data)
+
+    @action(detail=True, methods=["post"])
+    def reconnect(self, request: Request, pk: str | None = None) -> Response:
+        """Simulate a device reconnect — flips back to pending, re-spawns."""
+        device = self.get_object()
+        device.state = VirtualDevice.STATE_PENDING
+        device.save(update_fields=["state"])
+        publish_worker_command(
+            CHANNEL_DEVICES,
+            action="spawn",
+            device_id=str(device.id),
+        )
+        return Response(VirtualDeviceSerializer(device).data)
