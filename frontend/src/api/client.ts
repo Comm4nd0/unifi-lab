@@ -242,6 +242,22 @@ export type Paginated<T> = {
   results: T[];
 };
 
+export type FlowStatsBucket = {
+  t: string;
+  allowed: number;
+  blocked: number;
+  bytes_tx: number;
+  bytes_rx: number;
+};
+
+export type FlowStats = {
+  window_minutes: number;
+  bucket_seconds: number;
+  start: string;
+  buckets: FlowStatsBucket[];
+  totals: { allowed: number; blocked: number; bytes_tx: number; bytes_rx: number };
+};
+
 export const endpoints = {
   jwtCreate: (email: string, password: string) =>
     api.post<JwtPair>("/api/v1/auth/jwt/create/", { email, password }, { skipAuth: true }),
@@ -301,6 +317,20 @@ export const endpoints = {
         "/api/v1/traffic/flows/generate-samples/",
         body,
       ),
+    stats: (params: {
+      fleet?: string;
+      device?: string;
+      window_minutes?: number;
+      bucket_seconds?: number;
+    } = {}) => {
+      const qs = new URLSearchParams();
+      if (params.fleet) qs.set("fleet", params.fleet);
+      if (params.device) qs.set("device", params.device);
+      if (params.window_minutes) qs.set("window_minutes", String(params.window_minutes));
+      if (params.bucket_seconds) qs.set("bucket_seconds", String(params.bucket_seconds));
+      const q = qs.toString();
+      return api.get<FlowStats>(`/api/v1/traffic/flows/stats/${q ? `?${q}` : ""}`);
+    },
   },
   firmware: {
     list: () => api.get<Paginated<FirmwareBlob>>("/api/v1/firmware/"),

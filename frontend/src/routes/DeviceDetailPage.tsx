@@ -3,11 +3,12 @@ import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { endpoints } from "../api/client";
+import { FlowRateChart } from "../components/FlowRateChart";
 import { PortMap } from "../components/PortMap";
 import { Button, Card, EmptyState, PageHeader, StateChip } from "../components/ui";
 import { profileFor } from "../lib/deviceModels";
 
-type Tab = "overview" | "ports" | "radios" | "simulate";
+type Tab = "overview" | "ports" | "radios" | "flows" | "simulate";
 
 export function DeviceDetailPage() {
   const { id } = useParams({ from: "/_app/devices/$id" });
@@ -53,6 +54,7 @@ export function DeviceDetailPage() {
     { id: "overview", label: "Overview", available: true },
     { id: "ports", label: "Ports", available: !!profile.ports?.length },
     { id: "radios", label: "Radios", available: !!profile.radios?.length },
+    { id: "flows", label: "Flows", available: true },
     { id: "simulate", label: "Simulate", available: true },
   ];
 
@@ -220,6 +222,8 @@ export function DeviceDetailPage() {
         </Card>
       )}
 
+      {tab === "flows" && <DeviceFlowsTab deviceId={d.id} />}
+
       {tab === "simulate" && (
         <Card>
           <h3 className="text-sm font-medium uppercase tracking-wide text-slate-400">
@@ -269,5 +273,124 @@ export function DeviceDetailPage() {
         </Card>
       )}
     </>
+  );
+}
+
+function humanBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  if (n < 1024 * 1024 * 1024) return `${(n / 1024 / 1024).toFixed(1)} MB`;
+  return `${(n / 1024 / 1024 / 1024).toFixed(2)} GB`;
+}
+
+function DeviceFlowsTab({ deviceId }: { deviceId: string }) {
+  const stats = useQuery({
+    queryKey: ["traffic", "flows", "stats", { device: deviceId }],
+    queryFn: () =>
+      endpoints.traffic.stats({
+        device: deviceId,
+        window_minutes: 60,
+        bucket_seconds: 60,
+      }),
+    refetchInterval: 5_000,
+  });
+  // The flows list endpoint filters by fleet; for a single-device view we
+  // pull a page of recent flows and narrow client-side. Cheaper than
+  // adding a dedicated filter until we grow a dashboard.
+  const flows = useQuery({
+    queryKey: ["traffic", "flows", "byDevice", deviceId],
+    queryFn: () => endpoints.traffic.flows(),
+    refetchInterval: 5_000,
+    select: (d) => ({
+      ...d,
+      results: d.results.filter((f) => f.device === deviceId).slice(0, 20),
+    }),
+  });
+
+  const deviceTotals = stats.data?.totals;
+
+  return (
+    <div className="grid gap-4">
+      <Card>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h3 className="text-sm font-medium uppercase tracking-wide text-slate-400">
+              Flow rate — last hour
+            </h3>
+            <p className="mt-1 text-xs text-slate-500">
+              {deviceTotals
+                ? `${deviceTotals.allowed.toLocaleString()} allowed · ${deviceTotals.blocked.toLocaleString()} blocked · ${humanBytes(
+                    deviceTotals.bytes_tx + deviceTotals.bytes_rx,
+                  )} total`
+                : "Loading…"}
+            </p>
+          </div>
+        </div>
+        {stats.data && (
+          <div className="mt-3">
+            <FlowRateChart stats={stats.data} />
+          </div>
+        )}
+      </Card>
+
+      <Card className="p-0 overflow-hidden">
+        <div className="border-b border-slate-800 px-4 py-3">
+          <h3 className="text-sm font-medium uppercase tracking-wide text-slate-400">
+            Recent flows
+          </h3>
+          <p className="mt-1 text-xs text-slate-500">
+            Latest 20 flow records observed for this device. Refreshes every 5s.
+          </p>
+        </div>
+        {flows.isLoading && <p className="p-4 text-sm text-slate-500">Loading…</p>}
+        {flows.data && flows.data.results.length === 0 && (
+          <EmptyState
+            title="No flows yet"
+            hint="Attach this device to a fleet with an active traffic profile, or generate samples from the Traffic tab."
+          />
+        )}
+        {flows.data && flows.data.results.length > 0 && (
+          <table className="w-full text-sm">
+            <thead className="bg-slate-900/60 text-xs uppercase text-slate-400">
+              <tr>
+                <th className="px-3 py-2 text-left font-medium">App</th>
+                <th className="px-3 py-2 text-left font-medium">Proto</th>
+                <th className="px-3 py-2 text-left font-medium">Dest</th>
+                <th className="px-3 py-2 text-right font-medium">Tx</th>
+                <th className="px-3 py-2 text-right font-medium">Rx</th>
+                <th className="px-3 py-2 text-left font-medium">State</th>
+                <th className="px-3 py-2 text-left font-medium">When</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800">
+              {flows.data.results.map((f) => (
+                <tr key={f.id} className={f.blocked ? "bg-red-950/30" : "hover:bg-slate-900/40"}>
+                  <td className="px-3 py-2">
+                    {f.application || <span className="text-slate-600">—</span>}
+                  </td>
+                  <td className="px-3 py-2 font-mono text-xs uppercase">{f.protocol}</td>
+                  <td className="px-3 py-2 font-mono text-xs">
+                    {f.dst_ip}
+                    {f.dst_port ? `:${f.dst_port}` : ""}
+                  </td>
+                  <td className="px-3 py-2 text-right font-mono text-xs text-slate-400">
+                    {humanBytes(f.bytes_tx)}
+                  </td>
+                  <td className="px-3 py-2 text-right font-mono text-xs text-slate-400">
+                    {humanBytes(f.bytes_rx)}
+                  </td>
+                  <td className="px-3 py-2">
+                    <StateChip state={f.blocked ? "error" : "ok"} />
+                  </td>
+                  <td className="px-3 py-2 font-mono text-xs text-slate-500">
+                    {new Date(f.reported_at).toLocaleTimeString()}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </Card>
+    </div>
   );
 }

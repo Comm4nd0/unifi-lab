@@ -2,6 +2,7 @@ import { FormEvent, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { ApiError, endpoints, type TrafficProfile } from "../api/client";
+import { FlowRateChart } from "../components/FlowRateChart";
 import {
   Button,
   Card,
@@ -245,10 +246,22 @@ function FlowsTab() {
   const fleets = useQuery({ queryKey: ["fleets"], queryFn: endpoints.fleets.list });
   const [fleetId, setFleetId] = useState<string>("");
   const [sampleCount, setSampleCount] = useState(20);
+  const [windowMinutes, setWindowMinutes] = useState(60);
 
   const flows = useQuery({
     queryKey: ["traffic", "flows", { fleetId }],
     queryFn: () => endpoints.traffic.flows(fleetId ? { fleet: fleetId } : {}),
+    refetchInterval: 5_000,
+  });
+
+  const stats = useQuery({
+    queryKey: ["traffic", "flows", "stats", { fleetId, windowMinutes }],
+    queryFn: () =>
+      endpoints.traffic.stats({
+        fleet: fleetId || undefined,
+        window_minutes: windowMinutes,
+        bucket_seconds: windowMinutes <= 15 ? 30 : windowMinutes <= 120 ? 60 : 300,
+      }),
     refetchInterval: 5_000,
   });
 
@@ -294,10 +307,40 @@ function FlowsTab() {
           </div>
         </div>
         <p className="mt-3 text-xs text-slate-500">
-          Generate samples is a dev convenience — Phase 3 replaces it with worker-driven flow
-          injection based on traffic profiles. Requires a fleet with at least one device.
+          Generate samples is a dev convenience — the worker ticker also writes real flows from
+          active traffic profiles every few seconds.
         </p>
       </Card>
+
+      {stats.data && (
+        <Card className="mb-4">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h3 className="text-sm font-medium uppercase tracking-wide text-slate-400">
+                Flow rate
+              </h3>
+              <p className="mt-1 text-xs text-slate-500">
+                {stats.data.totals.allowed.toLocaleString()} allowed ·{" "}
+                {stats.data.totals.blocked.toLocaleString()} blocked over the last{" "}
+                {stats.data.window_minutes} minutes
+              </p>
+            </div>
+            <Select
+              value={String(windowMinutes)}
+              onChange={(e) => setWindowMinutes(Number(e.target.value))}
+              className="w-auto"
+            >
+              <option value="15">15 min</option>
+              <option value="60">1 hour</option>
+              <option value="240">4 hours</option>
+              <option value="1440">24 hours</option>
+            </Select>
+          </div>
+          <div className="mt-3">
+            <FlowRateChart stats={stats.data} />
+          </div>
+        </Card>
+      )}
 
       {flows.isLoading && <p className="text-sm text-slate-500">Loading…</p>}
       {flows.data && flows.data.results.length === 0 && (
