@@ -91,6 +91,9 @@ const fleetsRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/fleets",
   component: FleetsPage,
+  validateSearch: (search: Record<string, unknown>) => ({
+    blueprint: typeof search.blueprint === "string" ? search.blueprint : undefined,
+  }),
 });
 
 const fleetDetailRoute = createRoute({

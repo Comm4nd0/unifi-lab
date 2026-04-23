@@ -1,5 +1,5 @@
-import { FormEvent, useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { FormEvent, useEffect, useState } from "react";
+import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { ApiError, endpoints } from "../api/client";
@@ -16,10 +16,30 @@ import {
 
 export function FleetsPage() {
   const qc = useQueryClient();
+  const navigate = useNavigate();
+  const search = useSearch({ from: "/_app/fleets" });
   const list = useQuery({ queryKey: ["fleets"], queryFn: endpoints.fleets.list });
   const controllers = useQuery({ queryKey: ["controllers"], queryFn: endpoints.controllers.list });
   const blueprints = useQuery({ queryKey: ["blueprints"], queryFn: endpoints.blueprints.list });
   const [creating, setCreating] = useState(false);
+
+  // If the user landed here via "Deploy as fleet" on a blueprint editor,
+  // auto-open the create form so the blueprint pre-fill is visible
+  // without an extra click.
+  useEffect(() => {
+    if (search.blueprint && !creating) {
+      setCreating(true);
+    }
+    // Only respond to the incoming search param; user-driven toggles of
+    // ``creating`` are independent.
+
+  }, [search.blueprint]);
+
+  const clearBlueprintParam = () => {
+    if (search.blueprint) {
+      navigate({ to: "/fleets", search: { blueprint: undefined } });
+    }
+  };
 
   return (
     <>
@@ -34,9 +54,14 @@ export function FleetsPage() {
           <CreateFleetForm
             controllers={controllers.data?.results ?? []}
             blueprints={blueprints.data?.results ?? []}
-            onCancel={() => setCreating(false)}
+            preselectedBlueprint={search.blueprint}
+            onCancel={() => {
+              setCreating(false);
+              clearBlueprintParam();
+            }}
             onCreated={() => {
               setCreating(false);
+              clearBlueprintParam();
               qc.invalidateQueries({ queryKey: ["fleets"] });
               qc.invalidateQueries({ queryKey: ["devices"] });
             }}
@@ -123,21 +148,33 @@ export function FleetsPage() {
 function CreateFleetForm({
   controllers,
   blueprints,
+  preselectedBlueprint,
   onCancel,
   onCreated,
 }: {
   controllers: { id: string; name: string }[];
   blueprints: { id: string; name: string; version: number }[];
+  preselectedBlueprint?: string;
   onCancel: () => void;
   onCreated: () => void;
 }) {
   const templates = useQuery({ queryKey: ["templates"], queryFn: endpoints.templates.list });
-  const [name, setName] = useState("");
+  // When navigated from a blueprint page we want the create form to
+  // open pre-locked to that blueprint; otherwise fall back to whatever
+  // sensible defaults existed before.
+  const initialBlueprintId =
+    (preselectedBlueprint && blueprints.find((b) => b.id === preselectedBlueprint)?.id) ||
+    blueprints[0]?.id ||
+    "";
+  const initialName = preselectedBlueprint
+    ? `${blueprints.find((b) => b.id === preselectedBlueprint)?.name ?? "fleet"}-${Date.now().toString().slice(-4)}`
+    : "";
+  const [name, setName] = useState(initialName);
   const [controller, setController] = useState<string>(controllers[0]?.id ?? "");
   const [source, setSource] = useState<"simple" | "blueprint">(
-    blueprints.length > 0 ? "blueprint" : "simple",
+    preselectedBlueprint || blueprints.length > 0 ? "blueprint" : "simple",
   );
-  const [blueprintId, setBlueprintId] = useState<string>(blueprints[0]?.id ?? "");
+  const [blueprintId, setBlueprintId] = useState<string>(initialBlueprintId);
   const [modelCode, setModelCode] = useState("USW24P250");
   const [deviceCount, setDeviceCount] = useState(5);
   const [autoAdopt, setAutoAdopt] = useState(false);

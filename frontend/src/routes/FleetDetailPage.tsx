@@ -84,7 +84,7 @@ export function FleetDetailPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["fleets"] });
       qc.invalidateQueries({ queryKey: ["devices"] });
-      navigate({ to: "/fleets" });
+      navigate({ to: "/fleets", search: { blueprint: undefined } });
     },
   });
 
@@ -115,7 +115,7 @@ export function FleetDetailPage() {
         subtitle={`${f.device_count} × ${f.model_code}`}
         actions={
           <>
-            <Link to="/fleets" className="text-sm text-slate-400 hover:text-white">
+            <Link to="/fleets" search={{ blueprint: undefined }} className="text-sm text-slate-400 hover:text-white">
               ← All fleets
             </Link>
             {f.state !== "paused" && (

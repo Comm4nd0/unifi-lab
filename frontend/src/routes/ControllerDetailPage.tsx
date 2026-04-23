@@ -165,7 +165,7 @@ export function ControllerDetailPage() {
           <h3 className="text-sm font-medium uppercase tracking-wide text-slate-400">
             Fleets on this controller
           </h3>
-          <Link to="/fleets" className="text-xs text-indigo-400 hover:text-indigo-300">
+          <Link to="/fleets" search={{ blueprint: undefined }} className="text-xs text-indigo-400 hover:text-indigo-300">
             All fleets →
           </Link>
         </div>

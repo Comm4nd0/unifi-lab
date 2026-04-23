@@ -210,6 +210,15 @@ export function BlueprintEditorPage() {
               Export YAML
             </Button>
             {!isNew && (
+              <Link
+                to="/fleets"
+                search={{ blueprint: params.id }}
+                className="inline-flex h-8 items-center rounded-md bg-emerald-700 px-3 text-sm font-medium text-white hover:bg-emerald-600"
+              >
+                Deploy as fleet →
+              </Link>
+            )}
+            {!isNew && (
               <Button
                 size="sm"
                 variant="secondary"
