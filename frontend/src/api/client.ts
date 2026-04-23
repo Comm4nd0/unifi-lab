@@ -191,6 +191,34 @@ export type FirmwareBlob = {
   updated_at: string;
 };
 
+export type TrafficProfile = {
+  id: string;
+  name: string;
+  description: string;
+  source_yaml: string;
+  parsed_json: Record<string, unknown>;
+  version: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type FlowRecord = {
+  id: string;
+  device: string;
+  protocol: "tcp" | "udp" | "icmp";
+  src_ip: string;
+  dst_ip: string;
+  src_port: number | null;
+  dst_port: number | null;
+  bytes_tx: number;
+  bytes_rx: number;
+  application: string;
+  blocked: boolean;
+  reported_at: string;
+  created_at: string;
+};
+
 export type Fleet = {
   id: string;
   name: string;
@@ -250,6 +278,29 @@ export const endpoints = {
     delete: (id: string) => api.delete<void>(`/api/v1/blueprints/${id}/`),
     validate: (source_yaml: string) =>
       api.post<BlueprintValidationResult>("/api/v1/blueprints/validate/", { source_yaml }),
+  },
+  traffic: {
+    profiles: {
+      list: () => api.get<Paginated<TrafficProfile>>("/api/v1/traffic/profiles/"),
+      get: (id: string) => api.get<TrafficProfile>(`/api/v1/traffic/profiles/${id}/`),
+      create: (body: { name: string; source_yaml: string; description?: string }) =>
+        api.post<TrafficProfile>("/api/v1/traffic/profiles/", body),
+      update: (id: string, body: { name: string; source_yaml: string; description?: string }) =>
+        api.put<TrafficProfile>(`/api/v1/traffic/profiles/${id}/`, body),
+      delete: (id: string) => api.delete<void>(`/api/v1/traffic/profiles/${id}/`),
+    },
+    flows: (params: { fleet?: string; blocked?: boolean } = {}) => {
+      const qs = new URLSearchParams();
+      if (params.fleet) qs.set("fleet", params.fleet);
+      if (params.blocked !== undefined) qs.set("blocked", String(params.blocked));
+      const q = qs.toString();
+      return api.get<Paginated<FlowRecord>>(`/api/v1/traffic/flows/${q ? `?${q}` : ""}`);
+    },
+    generateSamples: (body: { fleet_id: string; count?: number }) =>
+      api.post<{ created: number; fleet_id: string }>(
+        "/api/v1/traffic/flows/generate-samples/",
+        body,
+      ),
   },
   firmware: {
     list: () => api.get<Paginated<FirmwareBlob>>("/api/v1/firmware/"),

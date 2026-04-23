@@ -10,6 +10,7 @@ const NAV = [
   { to: "/blueprints", label: "Blueprints" },
   { to: "/fleets", label: "Fleets" },
   { to: "/devices", label: "Devices" },
+  { to: "/traffic", label: "Traffic" },
   { to: "/firmware", label: "Firmware" },
 ];
 

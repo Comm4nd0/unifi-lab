@@ -1,6 +1,11 @@
-"""FlowRecord — simulated traffic flow reported to the controller.
+"""Traffic models.
 
-Worker-owned writes via SQLAlchemy async; Django reads only for UI/admin.
+- ``TrafficProfile`` — declarative, authored in YAML (like a Blueprint).
+  Stored both as raw source and parsed JSON. Materialisation into actual
+  flow records happens in the worker's Traffic Simulator component
+  (Phase 3), which reads parsed_json at runtime.
+- ``FlowRecord`` — one simulated flow. Worker-owned writes via
+  SQLAlchemy async; Django reads for the UI.
 """
 
 from __future__ import annotations
@@ -8,6 +13,28 @@ from __future__ import annotations
 from django.db import models
 
 from apps.common.models import BaseModel
+
+
+class TrafficProfile(BaseModel):
+    """A reusable definition of simulated traffic — personas, rates, apps.
+
+    Associated to fleets via ``FleetTrafficAssignment`` (future); for the
+    Phase 2 MVP the assignment is implicit via the profile's parsed_json
+    ``applies_to`` clause and runtime evaluation.
+    """
+
+    name = models.CharField(max_length=255, unique=True)
+    description = models.TextField(blank=True, default="")
+    source_yaml = models.TextField()
+    parsed_json = models.JSONField(default=dict)
+    version = models.PositiveIntegerField(default=1)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+
+    def __str__(self) -> str:
+        return f"{self.name} v{self.version}"
 
 
 class FlowRecord(BaseModel):
