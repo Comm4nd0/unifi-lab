@@ -355,9 +355,19 @@ export const endpoints = {
     delete: (id: string) => api.delete<void>(`/api/v1/firmware/${id}/`),
   },
   audit: {
-    list: (params: { page_size?: number } = {}) => {
+    list: (
+      params: {
+        page_size?: number;
+        page?: number;
+        action?: string;
+        target_type?: string;
+      } = {},
+    ) => {
       const qs = new URLSearchParams();
       if (params.page_size) qs.set("page_size", String(params.page_size));
+      if (params.page) qs.set("page", String(params.page));
+      if (params.action) qs.set("action", params.action);
+      if (params.target_type) qs.set("target_type", params.target_type);
       const q = qs.toString();
       return api.get<Paginated<AuditLog>>(`/api/v1/audit/${q ? `?${q}` : ""}`);
     },

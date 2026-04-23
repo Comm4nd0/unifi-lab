@@ -13,6 +13,7 @@ const NAV = [
   { to: "/topology", label: "Topology" },
   { to: "/traffic", label: "Traffic" },
   { to: "/firmware", label: "Firmware" },
+  { to: "/audit", label: "Audit" },
 ];
 
 export function AppShell() {
