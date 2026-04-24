@@ -49,10 +49,58 @@ def _step(name: str, status_: str, detail: str = "", *, elapsed_ms: int | None =
     return out
 
 
-async def _probe_login(ctrl: ControllerTarget) -> tuple[str, str]:
-    """Run the UniFi API login and translate errors into (status, detail).
+UNIFI_ERROR_HINTS: dict[str, str] = {
+    "api.err.Invalid": "invalid username or password",
+    "api.err.LoginRequired": "controller refused anonymous login request",
+    "api.err.UbicCloudAccount": (
+        "this is a Ubiquiti cloud account — create a local-access admin"
+        " in the controller's Admins & Users settings"
+    ),
+    "api.err.Ubic2faTokenRequired": (
+        "account requires 2FA — the API cannot complete an MFA challenge;"
+        " use a local admin without MFA"
+    ),
+    "api.err.AccountLocked": "account is locked after too many failed logins",
+    "api.err.NoPermission": "account lacks permission to log in via the API",
+}
 
-    Returns a 2-tuple: ``(step_status, detail)``. Never raises.
+
+def _decode_login_error(exc: UnifiApiError) -> str:
+    """Turn a raw UnifiApiError from login() into user-facing copy.
+
+    The controller usually returns ``{"meta":{"rc":"error","msg":"api.err.Xxx"}}``;
+    we map the handful of common codes to plain-English hints. Unknown codes
+    still surface as ``<status>: <msg>`` so operators see the real signal.
+    """
+    import json as _json
+    import re as _re
+
+    raw = (exc.message or "").removeprefix("login failed: ")
+    code: str | None = None
+    body_match = _re.search(r"\{.*\}", raw, _re.DOTALL)
+    if body_match:
+        try:
+            data = _json.loads(body_match.group(0))
+            meta = data.get("meta") or {}
+            candidate = meta.get("msg")
+            if isinstance(candidate, str):
+                code = candidate
+        except (ValueError, TypeError):
+            pass
+    if code:
+        friendly = UNIFI_ERROR_HINTS.get(code)
+        if friendly:
+            return f"{friendly} ({code})"
+        return f"controller error {code} (status {exc.status})"
+    snippet = raw[:140].replace("\n", " ").strip()
+    return f"status {exc.status}" + (f" · {snippet}" if snippet else "")
+
+
+async def _probe_login(ctrl: ControllerTarget) -> tuple[str, str, int | None]:
+    """Run the UniFi API login and translate errors into (status, detail, http_status).
+
+    ``http_status`` is the controller's HTTP response code when available,
+    or ``None`` for network/TLS errors. Never raises.
     """
     try:
         async with UosServerClient(
@@ -65,13 +113,11 @@ async def _probe_login(ctrl: ControllerTarget) -> tuple[str, str]:
         ) as client:
             await client.login()
     except UnifiApiError as exc:
-        if 400 <= exc.status < 500:
-            return "failed", f"controller rejected credentials ({exc.status})"
-        return "failed", f"controller returned {exc.status}"
-    except Exception as exc:  # noqa: BLE001 - intentional catch-all for probe
+        return "failed", _decode_login_error(exc), exc.status
+    except Exception as exc:
         log.exception("controller.probe.login.failed", extra={"controller": str(ctrl.id)})
-        return "failed", f"connection error: {type(exc).__name__}"
-    return "ok", "login accepted, session established"
+        return "failed", f"connection error: {type(exc).__name__}", None
+    return "ok", "login accepted, session established", 200
 
 
 def _probe_controller(ctrl: ControllerTarget) -> tuple[str, list[dict]]:
@@ -94,7 +140,9 @@ def _probe_controller(ctrl: ControllerTarget) -> tuple[str, list[dict]]:
     port = parsed.port or (443 if parsed.scheme == "https" else 80)
     parse_elapsed = int((time.monotonic() - t0) * 1000)
     if not host:
-        steps.append(_step(STEP_PARSE_URL, "failed", "inform URL missing hostname", elapsed_ms=parse_elapsed))
+        steps.append(
+            _step(STEP_PARSE_URL, "failed", "inform URL missing hostname", elapsed_ms=parse_elapsed)
+        )
         steps.append(_step(STEP_TCP_CONNECT, "skipped"))
         steps.append(_step(STEP_API_LOGIN, "skipped"))
         return ControllerTarget.HEALTH_UNKNOWN, steps
@@ -128,12 +176,12 @@ def _probe_controller(ctrl: ControllerTarget) -> tuple[str, list[dict]]:
 
     # 3. API login
     t0 = time.monotonic()
-    login_status, login_detail = async_to_sync(_probe_login)(ctrl)
+    login_status, login_detail, http_status = async_to_sync(_probe_login)(ctrl)
     login_elapsed = int((time.monotonic() - t0) * 1000)
     steps.append(_step(STEP_API_LOGIN, login_status, login_detail, elapsed_ms=login_elapsed))
     if login_status == "ok":
         return ControllerTarget.HEALTH_OK, steps
-    if "rejected credentials" in login_detail:
+    if http_status is not None and 400 <= http_status < 500:
         return ControllerTarget.HEALTH_AUTH_FAILED, steps
     return ControllerTarget.HEALTH_UNREACHABLE, steps
 

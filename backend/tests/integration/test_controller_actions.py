@@ -75,11 +75,53 @@ def test_health_check_ok_when_login_succeeds(api_client, controller_target, _moc
 def test_health_check_auth_failed_on_4xx(api_client, controller_target, _mock_tcp_ok):  # type: ignore[no-untyped-def]
     with patch(
         "apps.controllers.views.UosServerClient",
-        _client_that_logs_in(raises=UnifiApiError(401, "bad creds")),
+        _client_that_logs_in(
+            raises=UnifiApiError(
+                401,
+                'login failed: {"meta":{"rc":"error","msg":"api.err.Invalid"}}',
+            )
+        ),
     ):
         resp = api_client.post(f"/api/v1/controllers/{controller_target.id}/health-check/")
     assert resp.status_code == 200
     assert resp.data["health"] == "auth-failed"
+    login_step = next(s for s in resp.data["steps"] if s["name"] == "api_login")
+    # Friendly hint decoded from the UniFi error code.
+    assert "invalid username or password" in login_step["detail"].lower()
+    assert "api.err.Invalid" in login_step["detail"]
+
+
+@pytest.mark.django_db
+def test_health_check_decodes_cloud_account_hint(api_client, controller_target, _mock_tcp_ok):  # type: ignore[no-untyped-def]
+    with patch(
+        "apps.controllers.views.UosServerClient",
+        _client_that_logs_in(
+            raises=UnifiApiError(
+                400,
+                'login failed: {"meta":{"rc":"error","msg":"api.err.UbicCloudAccount"}}',
+            )
+        ),
+    ):
+        resp = api_client.post(f"/api/v1/controllers/{controller_target.id}/health-check/")
+    login_step = next(s for s in resp.data["steps"] if s["name"] == "api_login")
+    assert "local-access admin" in login_step["detail"]
+
+
+@pytest.mark.django_db
+def test_health_check_unknown_code_passes_through(api_client, controller_target, _mock_tcp_ok):  # type: ignore[no-untyped-def]
+    with patch(
+        "apps.controllers.views.UosServerClient",
+        _client_that_logs_in(
+            raises=UnifiApiError(
+                400,
+                'login failed: {"meta":{"rc":"error","msg":"api.err.SomeNewThing"}}',
+            )
+        ),
+    ):
+        resp = api_client.post(f"/api/v1/controllers/{controller_target.id}/health-check/")
+    login_step = next(s for s in resp.data["steps"] if s["name"] == "api_login")
+    # Unmapped codes still surface the raw code.
+    assert "api.err.SomeNewThing" in login_step["detail"]
 
 
 @pytest.mark.django_db
