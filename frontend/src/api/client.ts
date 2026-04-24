@@ -285,6 +285,12 @@ export const endpoints = {
     api.post<JwtPair>("/api/v1/auth/jwt/create/", { email, password }, { skipAuth: true }),
   me: () => api.get<User>("/api/v1/auth/me/"),
   health: () => api.get<HealthResponse>("/api/v1/system/health/"),
+  workerStatus: () =>
+    api.get<{
+      alive: boolean;
+      last_heartbeat_at: string | null;
+      metadata: Record<string, unknown>;
+    }>("/api/v1/system/worker-status/"),
   controllers: {
     list: () => api.get<Paginated<ControllerTarget>>("/api/v1/controllers/"),
     get: (id: string) => api.get<ControllerTarget>(`/api/v1/controllers/${id}/`),

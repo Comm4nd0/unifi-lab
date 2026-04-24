@@ -56,3 +56,20 @@ class DjangoApiClient:
             )
             resp.raise_for_status()
             return resp.json()
+
+    async def send_heartbeat(self, metadata: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Periodic signal that the asyncio worker process is alive.
+
+        Django caches the latest beat in Redis with a short TTL so the
+        dashboard can surface an "engine connected" indicator without
+        relying on any long-lived connection. ``metadata`` is echoed back
+        via the status endpoint — handy for pid / version / started_at.
+        """
+        async with httpx.AsyncClient(verify=self.verify_tls, timeout=self.timeout) as client:
+            resp = await client.post(
+                f"{self.base_url}/api/v1/system/worker-heartbeat/",
+                headers={**self._headers(), "Content-Type": "application/json"},
+                json=metadata or {},
+            )
+            resp.raise_for_status()
+            return resp.json()

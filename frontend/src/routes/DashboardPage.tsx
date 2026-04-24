@@ -77,6 +77,11 @@ export function DashboardPage() {
     queryFn: endpoints.health,
     refetchInterval: 30_000,
   });
+  const workerStatus = useQuery({
+    queryKey: ["worker-status"],
+    queryFn: endpoints.workerStatus,
+    refetchInterval: 15_000,
+  });
   const controllers = useQuery({ queryKey: ["controllers"], queryFn: endpoints.controllers.list });
   const devices = useQuery({
     queryKey: ["devices"],
@@ -138,7 +143,7 @@ export function DashboardPage() {
         }
       />
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-5">
         <Kpi
           label="Fleets"
           value={fleetCount}
@@ -173,6 +178,26 @@ export function DashboardPage() {
               : "last hour"
           }
           tone={flowTotals && flowTotals.blocked > 0 ? "warn" : "default"}
+        />
+        <Kpi
+          label="Engine"
+          value={
+            workerStatus.data?.alive
+              ? humanRelative(workerStatus.data.last_heartbeat_at ?? "")
+              : workerStatus.data
+                ? "dead"
+                : "—"
+          }
+          sub={
+            workerStatus.data?.alive
+              ? "heartbeat ok"
+              : workerStatus.data
+                ? "no beat in last 90s"
+                : "checking…"
+          }
+          tone={
+            workerStatus.data?.alive ? "good" : workerStatus.data ? "warn" : "default"
+          }
         />
       </div>
 

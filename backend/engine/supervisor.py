@@ -40,6 +40,8 @@ log = logging.getLogger("uvl.engine.supervisor")
 AUTO_ADOPT_MAX_ATTEMPTS = 4
 AUTO_ADOPT_INITIAL_BACKOFF_S = 1.0
 
+HEARTBEAT_INTERVAL_SECONDS = 30
+
 
 class Supervisor:
     def __init__(
@@ -52,6 +54,7 @@ class Supervisor:
         self._tasks: dict[str, asyncio.Task[None]] = {}
         self._command_task: asyncio.Task[None] | None = None
         self._traffic_task: asyncio.Task[None] | None = None
+        self._heartbeat_task: asyncio.Task[None] | None = None
         self._stop = asyncio.Event()
         self._engine: AsyncEngine | None = engine
         self._sessionmaker = make_sessionmaker(engine) if engine is not None else None
@@ -87,6 +90,14 @@ class Supervisor:
                 run_ticker_loop(ticker, self._stop), name="supervisor.traffic"
             )
 
+        # Heartbeat: posts to Django every 30s so the dashboard can show
+        # an "engine alive" indicator. No-op if the worker token isn't
+        # configured — local solo-device runs don't need it.
+        if self.cfg.worker_token:
+            self._heartbeat_task = asyncio.create_task(
+                self._heartbeat_loop(), name="supervisor.heartbeat"
+            )
+
     async def shutdown(self) -> None:
         self._stop.set()
         if self._command_task:
@@ -97,6 +108,10 @@ class Supervisor:
             self._traffic_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await self._traffic_task
+        if self._heartbeat_task:
+            self._heartbeat_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._heartbeat_task
         for device_id, task in list(self._tasks.items()):
             task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
@@ -208,6 +223,29 @@ class Supervisor:
             base_url=self.cfg.django_api_base,
             token=self.cfg.worker_token,
         )
+
+    async def _heartbeat_loop(self) -> None:
+        """Post a heartbeat to Django every ``HEARTBEAT_INTERVAL_SECONDS``.
+
+        Swallows per-iteration errors so a transient Django outage
+        doesn't crash the worker; the dashboard will reflect the missed
+        beats via its 90s TTL.
+        """
+        import os
+
+        metadata = {"pid": os.getpid()}
+        while not self._stop.is_set():
+            try:
+                client = self.django_client_factory()
+                await client.send_heartbeat(metadata)
+            except Exception:
+                log.exception("supervisor.heartbeat.failed")
+            try:
+                await asyncio.wait_for(self._stop.wait(), timeout=HEARTBEAT_INTERVAL_SECONDS)
+            except TimeoutError:
+                continue
+            except asyncio.CancelledError:
+                raise
 
     async def _notify_adopted(self, device_id: str) -> None:
         """Call Django back to flip VirtualDevice.state to 'adopted'."""

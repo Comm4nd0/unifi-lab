@@ -123,11 +123,11 @@ class FlowRecord(Base):
 
 
 __all__ = [
+    "STATE_PENDING",
     "Base",
     "ControllerTarget",
     "FlowRecord",
     "InformExchange",
-    "STATE_PENDING",
     "TrafficProfile",
     "VirtualDevice",
 ]

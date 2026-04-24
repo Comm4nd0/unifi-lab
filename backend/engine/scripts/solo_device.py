@@ -41,7 +41,9 @@ def _default_serial(model: str) -> str:
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="UVL solo device smoke test (Phase 0)")
-    p.add_argument("--controller", required=True, help="Controller base URL, e.g. https://192.168.1.50")
+    p.add_argument(
+        "--controller", required=True, help="Controller base URL, e.g. https://192.168.1.50"
+    )
     p.add_argument("--insecure", action="store_true", help="Skip TLS verification")
     p.add_argument("--model", default="USW24P250", help="Device model code")
     p.add_argument("--mac", default=None, help="Override MAC (default: random LAA)")
