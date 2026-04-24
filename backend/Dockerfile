@@ -25,8 +25,8 @@ RUN apt-get update \
 WORKDIR /app
 
 COPY pyproject.toml ./
-RUN uv pip install --system -r <(uv export --format requirements-txt --no-dev 2>/dev/null || true) \
- && uv pip install --system -e .[dev] || uv pip install --system -e .
+SHELL ["/bin/bash", "-c"]
+RUN uv export > /tmp/reqs.txt && uv pip install -r /tmp/reqs.txt && uv pip install -e .
 
 COPY . .
 
@@ -42,7 +42,7 @@ CMD ["python", "-m", "engine.main"]
 # ── worker-celery: firmware ingestion ─────────────────────────────
 FROM base AS worker-celery
 RUN apt-get update \
- && apt-get install -y --no-install-recommends binwalk \
+ && apt-get install -y --no-install-recommends binwalk squashfs-tools \
  && rm -rf /var/lib/apt/lists/*
 CMD ["celery", "-A", "config", "worker", "-l", "info"]
 
