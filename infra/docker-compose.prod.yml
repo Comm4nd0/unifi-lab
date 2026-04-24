@@ -18,8 +18,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    ports:
-      - "8003:8003"
+    expose:
+      - "8003"
 
   worker-devices:
     build:
@@ -54,7 +54,10 @@ services:
     depends_on:
       - app
     ports:
-      - "3000:80"
+      # UVL is reserved on :8003 on Luma001 (see CLAUDE.md). The frontend
+      # nginx container is the user-facing edge — it serves the SPA and
+      # proxies /api/ + /ws/ to the app container in-cluster.
+      - "8003:80"
 
   minio:
     image: minio/minio:latest
