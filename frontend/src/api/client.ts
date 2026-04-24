@@ -322,6 +322,8 @@ export const endpoints = {
     create: (body: Partial<ControllerTarget> & { api_username?: string; api_password?: string }) =>
       api.post<ControllerTarget>("/api/v1/controllers/", body),
     delete: (id: string) => api.delete<void>(`/api/v1/controllers/${id}/`),
+    healthCheck: (id: string) =>
+      api.post<ControllerTarget>(`/api/v1/controllers/${id}/health-check/`),
   },
   devices: {
     list: () => api.get<Paginated<VirtualDevice>>("/api/v1/devices/"),

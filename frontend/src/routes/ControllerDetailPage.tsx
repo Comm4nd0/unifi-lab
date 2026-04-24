@@ -58,6 +58,14 @@ export function ControllerDetailPage() {
     },
   });
 
+  const check = useMutation({
+    mutationFn: () => endpoints.controllers.healthCheck(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["controllers", id] });
+      qc.invalidateQueries({ queryKey: ["controllers"] });
+    },
+  });
+
   if (ctrl.isLoading) return <p className="text-sm text-slate-500">Loading…</p>;
   if (ctrl.error) return <p className="text-sm text-red-400">{(ctrl.error as Error).message}</p>;
   if (!ctrl.data) return null;
@@ -74,6 +82,15 @@ export function ControllerDetailPage() {
             <Link to="/controllers" className="text-sm text-slate-400 hover:text-white">
               ← All controllers
             </Link>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => check.mutate()}
+              disabled={check.isPending}
+              title="Probe controller reachability (TCP/TLS on inform URL)"
+            >
+              {check.isPending ? "Checking…" : "Check health"}
+            </Button>
             <Button
               variant="danger"
               size="sm"
