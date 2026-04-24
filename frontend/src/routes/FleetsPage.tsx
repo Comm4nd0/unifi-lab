@@ -1,8 +1,8 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { ApiError, endpoints } from "../api/client";
+import { ApiError, endpoints, type Fleet } from "../api/client";
 import {
   Button,
   Card,
@@ -14,6 +14,8 @@ import {
   StateChip,
 } from "../components/ui";
 
+type BulkAction = "pause" | "resume" | "teardown";
+
 export function FleetsPage() {
   const qc = useQueryClient();
   const navigate = useNavigate();
@@ -22,6 +24,9 @@ export function FleetsPage() {
   const controllers = useQuery({ queryKey: ["controllers"], queryFn: endpoints.controllers.list });
   const blueprints = useQuery({ queryKey: ["blueprints"], queryFn: endpoints.blueprints.list });
   const [creating, setCreating] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkInFlight, setBulkInFlight] = useState<BulkAction | null>(null);
+  const headerCheckboxRef = useRef<HTMLInputElement | null>(null);
 
   // If the user landed here via "Deploy as fleet" on a blueprint editor,
   // auto-open the create form so the blueprint pre-fill is visible
@@ -38,6 +43,85 @@ export function FleetsPage() {
   const clearBlueprintParam = () => {
     if (search.blueprint) {
       navigate({ to: "/fleets", search: { blueprint: undefined } });
+    }
+  };
+
+  const fleetsById = useMemo<Map<string, Fleet>>(() => {
+    const m = new Map<string, Fleet>();
+    for (const f of list.data?.results ?? []) m.set(f.id, f);
+    return m;
+  }, [list.data]);
+
+  const visibleIds = useMemo(
+    () => (list.data?.results ?? []).map((f) => f.id),
+    [list.data],
+  );
+
+  const allSelected =
+    visibleIds.length > 0 && visibleIds.every((id) => selected.has(id));
+  const someSelected = !allSelected && visibleIds.some((id) => selected.has(id));
+
+  // Keep the header checkbox's tri-state (``indeterminate``) in sync.
+  useEffect(() => {
+    if (headerCheckboxRef.current) {
+      headerCheckboxRef.current.indeterminate = someSelected;
+    }
+  }, [someSelected]);
+
+  const toggleRow = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    if (allSelected || someSelected) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(visibleIds));
+    }
+  };
+
+  const clearSelection = () => setSelected(new Set());
+
+  const runBulk = async (action: BulkAction) => {
+    const ids = Array.from(selected);
+    if (ids.length === 0) return;
+    const names = ids
+      .map((id) => fleetsById.get(id)?.name ?? id)
+      .slice(0, 10)
+      .join(", ");
+    const more = ids.length > 10 ? ` and ${ids.length - 10} more` : "";
+    const verb =
+      action === "teardown"
+        ? `Tear down (DESTRUCTIVE)`
+        : action[0].toUpperCase() + action.slice(1);
+    if (
+      !window.confirm(
+        `${verb} ${ids.length} fleet${ids.length === 1 ? "" : "s"}?\n\n${names}${more}`,
+      )
+    ) {
+      return;
+    }
+    setBulkInFlight(action);
+    const fn =
+      action === "pause"
+        ? endpoints.fleets.pause
+        : action === "resume"
+          ? endpoints.fleets.resume
+          : endpoints.fleets.teardown;
+    try {
+      // Fire in parallel; individual failures are isolated via allSettled
+      // so a single 4xx doesn't abort the whole batch.
+      await Promise.allSettled(ids.map((id) => fn(id)));
+    } finally {
+      setBulkInFlight(null);
+      setSelected(new Set());
+      qc.invalidateQueries({ queryKey: ["fleets"] });
+      qc.invalidateQueries({ queryKey: ["devices"] });
     }
   };
 
@@ -80,66 +164,140 @@ export function FleetsPage() {
         />
       )}
       {list.data && list.data.results.length > 0 && (
-        <div className="overflow-hidden rounded-lg border border-slate-800">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-900/60 text-xs uppercase text-slate-400">
-              <tr>
-                <th className="px-4 py-2 text-left font-medium">Name</th>
-                <th className="px-4 py-2 text-left font-medium">State</th>
-                <th className="px-4 py-2 text-left font-medium">Devices</th>
-                <th className="px-4 py-2 text-left font-medium">Source</th>
-                <th className="px-4 py-2 text-left font-medium">Controller</th>
-                <th className="px-4 py-2" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800">
-              {list.data.results.map((f) => {
-                const ctrl = controllers.data?.results.find((c) => c.id === f.controller_target);
-                const bp = f.blueprint
-                  ? blueprints.data?.results.find((b) => b.id === f.blueprint)
-                  : null;
-                return (
-                  <tr key={f.id} className="hover:bg-slate-900/40">
-                    <td className="px-4 py-3 font-medium">
-                      <Link to="/fleets/$id" params={{ id: f.id }} className="hover:text-white">
-                        {f.name}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3">
-                      <StateChip state={f.state} />
-                    </td>
-                    <td className="px-4 py-3 font-mono text-xs">{f.device_count}</td>
-                    <td className="px-4 py-3 text-slate-400">
-                      {bp ? (
-                        <Link
-                          to="/blueprints/$id"
-                          params={{ id: bp.id }}
-                          className="text-indigo-400 hover:text-indigo-300"
-                        >
-                          {bp.name} (v{bp.version})
+        <>
+          {selected.size > 0 && (
+            <Card className="mb-4 border-indigo-800 bg-indigo-950/30">
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="text-sm text-slate-200">
+                  {selected.size} fleet{selected.size === 1 ? "" : "s"} selected
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => runBulk("pause")}
+                    disabled={bulkInFlight !== null}
+                  >
+                    {bulkInFlight === "pause" ? "Pausing…" : "Pause selected"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => runBulk("resume")}
+                    disabled={bulkInFlight !== null}
+                  >
+                    {bulkInFlight === "resume" ? "Resuming…" : "Resume selected"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="danger"
+                    onClick={() => runBulk("teardown")}
+                    disabled={bulkInFlight !== null}
+                  >
+                    {bulkInFlight === "teardown" ? "Tearing down…" : "Teardown selected"}
+                  </Button>
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={clearSelection}
+                  className="ml-auto"
+                >
+                  Clear selection
+                </Button>
+              </div>
+            </Card>
+          )}
+
+          <div className="overflow-hidden rounded-lg border border-slate-800">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-900/60 text-xs uppercase text-slate-400">
+                <tr>
+                  <th className="px-4 py-2 text-left font-medium w-8">
+                    <input
+                      ref={headerCheckboxRef}
+                      type="checkbox"
+                      aria-label="Select all fleets"
+                      className="h-4 w-4 rounded border-slate-700 bg-slate-900"
+                      checked={allSelected}
+                      onChange={toggleAll}
+                    />
+                  </th>
+                  <th className="px-4 py-2 text-left font-medium">Name</th>
+                  <th className="px-4 py-2 text-left font-medium">State</th>
+                  <th className="px-4 py-2 text-left font-medium">Devices</th>
+                  <th className="px-4 py-2 text-left font-medium">Source</th>
+                  <th className="px-4 py-2 text-left font-medium">Controller</th>
+                  <th className="px-4 py-2" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800">
+                {list.data.results.map((f) => {
+                  const ctrl = controllers.data?.results.find(
+                    (c) => c.id === f.controller_target,
+                  );
+                  const bp = f.blueprint
+                    ? blueprints.data?.results.find((b) => b.id === f.blueprint)
+                    : null;
+                  const isSelected = selected.has(f.id);
+                  return (
+                    <tr
+                      key={f.id}
+                      className={
+                        "hover:bg-slate-900/40" +
+                        (isSelected ? " bg-indigo-950/30" : "")
+                      }
+                    >
+                      <td className="px-4 py-3">
+                        <input
+                          type="checkbox"
+                          aria-label={`Select fleet ${f.name}`}
+                          className="h-4 w-4 rounded border-slate-700 bg-slate-900"
+                          checked={isSelected}
+                          onChange={() => toggleRow(f.id)}
+                        />
+                      </td>
+                      <td className="px-4 py-3 font-medium">
+                        <Link to="/fleets/$id" params={{ id: f.id }} className="hover:text-white">
+                          {f.name}
                         </Link>
-                      ) : (
-                        <span className="font-mono">{f.model_code}</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-slate-400">
-                      {ctrl ? ctrl.name : <span className="text-slate-600">—</span>}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <Link
-                        to="/fleets/$id"
-                        params={{ id: f.id }}
-                        className="text-sm text-indigo-400 hover:text-indigo-300"
-                      >
-                        Detail →
-                      </Link>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <StateChip state={f.state} />
+                      </td>
+                      <td className="px-4 py-3 font-mono text-xs">{f.device_count}</td>
+                      <td className="px-4 py-3 text-slate-400">
+                        {bp ? (
+                          <Link
+                            to="/blueprints/$id"
+                            params={{ id: bp.id }}
+                            className="text-indigo-400 hover:text-indigo-300"
+                          >
+                            {bp.name} (v{bp.version})
+                          </Link>
+                        ) : (
+                          <span className="font-mono">{f.model_code}</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-slate-400">
+                        {ctrl ? ctrl.name : <span className="text-slate-600">—</span>}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <Link
+                          to="/fleets/$id"
+                          params={{ id: f.id }}
+                          className="text-sm text-indigo-400 hover:text-indigo-300"
+                        >
+                          Detail →
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </>
   );
