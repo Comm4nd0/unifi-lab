@@ -4,6 +4,15 @@ include:
   - docker-compose.base.yml
 
 services:
+  frontend:
+    build:
+      context: ../frontend
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "3000:80"
+
   app:
     build:
       context: ../backend

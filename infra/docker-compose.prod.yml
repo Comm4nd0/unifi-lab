@@ -47,6 +47,15 @@ services:
       redis:
         condition: service_healthy
 
+  frontend:
+    build:
+      context: ../frontend
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "3000:80"
+
   minio:
     image: minio/minio:latest
     restart: unless-stopped

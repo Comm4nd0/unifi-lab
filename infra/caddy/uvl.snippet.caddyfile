@@ -1,21 +1,25 @@
 # Paste this block into ~/caddy/Caddyfile on Luma001.
 # Replace uvl.example.com with the chosen UVL subdomain.
+#
+# Architecture: Caddy → frontend nginx (port 3000) → serves static SPA
+#                                                   ↘ proxies /api/ + /ws/ to app:8003
 uvl.example.com {
     encode zstd gzip
 
-    # WebSocket support for Django Channels
+    # Everything goes to the frontend nginx container.
+    # Nginx handles SPA routing and proxies /api/ + /ws/ to the backend.
     @ws {
         header Connection *Upgrade*
         header Upgrade    websocket
     }
-    reverse_proxy @ws 172.17.0.1:8003 {
+    reverse_proxy @ws 172.17.0.1:3000 {
         transport http {
             read_timeout  1h
             write_timeout 1h
         }
     }
 
-    reverse_proxy 172.17.0.1:8003
+    reverse_proxy 172.17.0.1:3000
 
     log {
         output file /var/log/caddy/uvl.access.log
