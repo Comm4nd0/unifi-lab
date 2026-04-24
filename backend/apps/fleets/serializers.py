@@ -5,8 +5,12 @@ from rest_framework import serializers
 from .models import Fleet
 
 
+_READY_STATES = frozenset({"adopted", "heartbeat"})
+
+
 class FleetSerializer(serializers.ModelSerializer):
     device_states = serializers.SerializerMethodField()
+    health = serializers.SerializerMethodField()
 
     class Meta:
         model = Fleet
@@ -22,6 +26,7 @@ class FleetSerializer(serializers.ModelSerializer):
             "auto_adopt",
             "retired_at",
             "device_states",
+            "health",
             "created_at",
             "updated_at",
         )
@@ -30,6 +35,7 @@ class FleetSerializer(serializers.ModelSerializer):
             "state",
             "retired_at",
             "device_states",
+            "health",
             "created_at",
             "updated_at",
         )
@@ -60,3 +66,18 @@ class FleetSerializer(serializers.ModelSerializer):
         for row in obj.devices.values("state").all():
             counts[row["state"]] = counts.get(row["state"], 0) + 1
         return counts
+
+    def get_health(self, obj: Fleet) -> str:
+        if obj.state not in (Fleet.STATE_ACTIVE, Fleet.STATE_PAUSED):
+            return "unknown"
+        total = obj.device_count
+        if total == 0:
+            return "unknown"
+        states = self.get_device_states(obj)
+        ready = sum(n for s, n in states.items() if s in _READY_STATES)
+        ratio = ready / total
+        if ratio >= 0.8:
+            return "healthy"
+        if ratio >= 0.5:
+            return "degraded"
+        return "critical"
