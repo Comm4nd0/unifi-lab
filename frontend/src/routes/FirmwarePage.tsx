@@ -1,7 +1,8 @@
-import { ChangeEvent, DragEvent, useRef, useState } from "react";
+import { ChangeEvent, DragEvent, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { ApiError, endpoints, type FirmwareBlob } from "../api/client";
+import { useChannel } from "../api/ws";
 import { useConfirm } from "../components/ConfirmDialog";
 import { Card, EmptyState, PageHeader, StateChip } from "../components/ui";
 
@@ -12,12 +13,118 @@ function humanSize(bytes: number): string {
   return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
 }
 
+// ── ingestion progress panel ─────────────────────────────────────────────────
+
+type ProgressEvent = { step: string; detail: string; error: boolean };
+
+function FirmwareProgressPanel({
+  blobId,
+  filename,
+  onDismiss,
+}: {
+  blobId: string;
+  filename: string;
+  onDismiss: () => void;
+}) {
+  const qc = useQueryClient();
+  const [log, setLog] = useState<ProgressEvent[]>([]);
+  const [done, setDone] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const logEndRef = useRef<HTMLDivElement>(null);
+
+  const { messages } = useChannel({
+    path: done || failed ? "" : `/ws/firmware/${blobId}/`,
+  });
+
+  useEffect(() => {
+    const last = messages[messages.length - 1];
+    if (!last) return;
+
+    if (last.type === "firmware.snapshot") {
+      const state = last.data.state as string;
+      if (state === "ready") { setDone(true); qc.invalidateQueries({ queryKey: ["firmware"] }); }
+      if (state === "failed") { setFailed(true); qc.invalidateQueries({ queryKey: ["firmware"] }); }
+      return;
+    }
+
+    if (last.type === "firmware.progress") {
+      const ev: ProgressEvent = {
+        step: last.data.step as string,
+        detail: last.data.detail as string,
+        error: Boolean(last.data.error),
+      };
+      setLog((prev) => [...prev, ev]);
+      if (ev.step === "ready") { setDone(true); qc.invalidateQueries({ queryKey: ["firmware"] }); }
+      if (ev.step === "failed") { setFailed(true); qc.invalidateQueries({ queryKey: ["firmware"] }); }
+    }
+  }, [messages, qc]);
+
+  useEffect(() => {
+    logEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [log]);
+
+  const borderColor = failed
+    ? "border-red-700"
+    : done
+      ? "border-emerald-700"
+      : "border-indigo-700";
+
+  return (
+    <Card className={`mb-4 ${borderColor}`}>
+      <div className="flex items-baseline justify-between gap-2">
+        <h3 className="text-sm font-medium text-slate-200">
+          Ingesting{" "}
+          <span className="font-mono text-xs text-slate-400">{filename}</span>
+        </h3>
+        {(done || failed) && (
+          <button
+            type="button"
+            onClick={onDismiss}
+            className="text-xs text-slate-400 hover:text-slate-200"
+          >
+            Dismiss
+          </button>
+        )}
+      </div>
+
+      <div className="mt-2 max-h-40 overflow-y-auto rounded bg-slate-950 px-3 py-2 font-mono text-[11px]">
+        {log.length === 0 && (
+          <span className="text-slate-600">Waiting for pipeline…</span>
+        )}
+        {log.map((ev, i) => (
+          <div key={i} className={ev.error ? "text-red-400" : "text-slate-300"}>
+            <span className="mr-2 text-slate-600">[{ev.step}]</span>
+            {ev.detail}
+          </div>
+        ))}
+        <div ref={logEndRef} />
+      </div>
+
+      <p className="mt-2 text-xs">
+        {failed ? (
+          <span className="text-red-400">Ingestion failed</span>
+        ) : done ? (
+          <span className="text-emerald-400">Ingestion complete</span>
+        ) : (
+          <span className="animate-pulse text-indigo-400">Processing…</span>
+        )}
+      </p>
+    </Card>
+  );
+}
+
+// ── main page ────────────────────────────────────────────────────────────────
+
 export function FirmwarePage() {
   const qc = useQueryClient();
   const { openConfirm } = useConfirm();
   const fileInput = useRef<HTMLInputElement>(null);
   const [dragActive, setDragActive] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
+  const [activeIngestion, setActiveIngestion] = useState<{
+    id: string;
+    filename: string;
+  } | null>(null);
 
   const list = useQuery({
     queryKey: ["firmware"],
@@ -27,8 +134,11 @@ export function FirmwarePage() {
 
   const upload = useMutation({
     mutationFn: (file: File) => endpoints.firmware.upload(file),
-    onSuccess: () => {
+    onSuccess: (blob) => {
       setLastError(null);
+      if (blob.state === "ingesting" || blob.state === "uploaded") {
+        setActiveIngestion({ id: blob.id, filename: blob.filename });
+      }
       qc.invalidateQueries({ queryKey: ["firmware"] });
     },
     onError: (err) =>
@@ -102,8 +212,16 @@ export function FirmwarePage() {
         {lastError && <p className="mt-3 text-sm text-red-400">{lastError}</p>}
       </Card>
 
+      {activeIngestion && (
+        <FirmwareProgressPanel
+          blobId={activeIngestion.id}
+          filename={activeIngestion.filename}
+          onDismiss={() => setActiveIngestion(null)}
+        />
+      )}
+
       {list.isLoading && <p className="text-sm text-slate-500">Loading…</p>}
-      {list.data && list.data.results.length === 0 && (
+      {list.data && list.data.results.length === 0 && !activeIngestion && (
         <EmptyState
           title="No firmware uploaded yet"
           hint="Drop a .bin to build device templates the engine can instantiate."
