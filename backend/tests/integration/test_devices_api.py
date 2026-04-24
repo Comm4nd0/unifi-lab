@@ -43,4 +43,7 @@ def test_inform_log_endpoint(api_client, controller_target):  # type: ignore[no-
     )
     resp = api_client.get(f"/api/v1/devices/{device.id}/inform-log/")
     assert resp.status_code == 200
-    assert resp.data["count"] == 0
+    # Cursor pagination: no count field; new device has no exchanges.
+    assert resp.data["results"] == []
+    assert resp.data["next"] is None
+    assert resp.data["previous"] is None

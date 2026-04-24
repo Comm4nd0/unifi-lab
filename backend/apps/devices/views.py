@@ -3,10 +3,10 @@ from __future__ import annotations
 from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.pagination import PageNumberPagination
 from rest_framework.request import Request
 from rest_framework.response import Response
 
+from apps.common.pagination import InformExchangeCursor
 from apps.common.permissions import IsWorkerRequest
 from apps.common.worker_commands import CHANNEL_DEVICES, publish_worker_command
 
@@ -44,7 +44,7 @@ class VirtualDeviceViewSet(viewsets.ModelViewSet):
     def inform_log(self, request: Request, pk: str | None = None) -> Response:
         device = self.get_object()
         qs = device.inform_exchanges.all()
-        paginator = PageNumberPagination()
+        paginator = InformExchangeCursor()
         page = paginator.paginate_queryset(qs, request, view=self)
         serializer = InformExchangeSerializer(page, many=True)
         return paginator.get_paginated_response(serializer.data)
