@@ -4,7 +4,10 @@
     {
       "name": "backend",
       "runtimeExecutable": "bash",
-      "runtimeArgs": ["-c", "cd backend && .venv/Scripts/daphne.exe -b 0.0.0.0 -p 8003 config.asgi:application"],
+      "runtimeArgs": [
+        "-c",
+        "export $(grep -v '^#' .env 2>/dev/null | xargs); export WSLENV=UVL_WORKER_TOKEN/u:UVL_DJANGO_API_BASE/u:UVL_DATABASE_URL/u:UVL_LOG_LEVEL/u; cd backend && .venv/Scripts/daphne.exe -b 0.0.0.0 -p 8003 config.asgi:application"
+      ],
       "port": 8003
     },
     {
@@ -12,6 +15,16 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "-w", "frontend"],
       "port": 5173
+    },
+    {
+      "name": "engine",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "cd backend && .venv/Scripts/python.exe -m engine.scripts.heartbeat_only"
+      ],
+      "port": 8901,
+      "autoPort": true
     }
   ]
 }
