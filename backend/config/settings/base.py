@@ -204,6 +204,24 @@ CELERY_RESULT_SERIALIZER = "json"
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TIMEZONE = TIME_ZONE
 
+# ── Cache ─────────────────────────────────────────────────────────
+# Worker-heartbeat storage + any other transient data lives here.
+# Redis-backed when ``UVL_REDIS_URL`` is set (prod, docker-compose)
+# so all daphne + celery workers see the same cache. Falls back to
+# per-process LocMemCache for bare-metal dev and tests.
+_CACHE_REDIS_URL = os.environ.get("UVL_REDIS_URL", "")
+if _CACHE_REDIS_URL:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": _CACHE_REDIS_URL.rstrip("/") + "/3",
+        }
+    }
+else:
+    CACHES = {
+        "default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"},
+    }
+
 # ── Logging ───────────────────────────────────────────────────────
 import structlog  # noqa: E402
 
