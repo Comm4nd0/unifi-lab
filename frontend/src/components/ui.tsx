@@ -133,6 +133,10 @@ export function StateChip({ state }: { state: string }) {
   );
 }
 
+export function Skeleton({ className }: { className?: string }) {
+  return <div className={cn("animate-pulse rounded-md bg-slate-800", className)} />;
+}
+
 export function EmptyState({ title, hint }: { title: string; hint?: string }) {
   return (
     <div className="rounded-lg border border-dashed border-slate-800 bg-slate-900/40 p-10 text-center">

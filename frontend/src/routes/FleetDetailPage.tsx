@@ -4,6 +4,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { endpoints } from "../api/client";
 import { useChannel } from "../api/ws";
+import { useConfirm } from "../components/ConfirmDialog";
+import { useToast } from "../components/toast";
 import { TopologyGraph } from "../components/TopologyGraph";
 import { Button, Card, EmptyState, PageHeader, StateChip } from "../components/ui";
 
@@ -43,6 +45,9 @@ export function FleetDetailPage() {
   const qc = useQueryClient();
 
   const [tab, setTab] = useState<Tab>("overview");
+
+  const toast = useToast();
+  const { openConfirm } = useConfirm();
 
   const fleet = useQuery({
     queryKey: ["fleets", id],
@@ -86,6 +91,7 @@ export function FleetDetailPage() {
       qc.invalidateQueries({ queryKey: ["devices"] });
       navigate({ to: "/fleets", search: { blueprint: undefined } });
     },
+    onError: (err) => toast.error(`Tear-down failed: ${(err as Error).message}`),
   });
 
   if (fleet.isLoading) return <p className="text-sm text-slate-500">Loading…</p>;
@@ -131,8 +137,14 @@ export function FleetDetailPage() {
             <Button
               size="sm"
               variant="danger"
-              onClick={() => {
-                if (confirm(`Tear down ${f.name}? Devices will be despawned.`)) tear.mutate();
+              onClick={async () => {
+                const ok = await openConfirm({
+                  title: `Tear down "${f.name}"?`,
+                  message: "All devices in this fleet will be despawned.",
+                  confirmLabel: "Tear down",
+                  variant: "danger",
+                });
+                if (ok) tear.mutate();
               }}
               disabled={busy}
             >

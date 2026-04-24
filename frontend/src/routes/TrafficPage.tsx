@@ -2,6 +2,7 @@ import { FormEvent, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { ApiError, endpoints, type TrafficProfile } from "../api/client";
+import { useConfirm } from "../components/ConfirmDialog";
 import { FlowRateChart } from "../components/FlowRateChart";
 import { YamlEditor } from "../components/YamlEditor";
 import {
@@ -170,6 +171,7 @@ function ProfileEditor({
   const [name, setName] = useState(profile?.name ?? "");
   const [source, setSource] = useState(profile?.source_yaml ?? EXAMPLE_PROFILE);
   const [formError, setFormError] = useState<string | null>(null);
+  const { openConfirm } = useConfirm();
 
   const save = useMutation({
     mutationFn: () => {
@@ -205,8 +207,13 @@ function ProfileEditor({
             <Button
               variant="danger"
               size="sm"
-              onClick={() => {
-                if (confirm(`Delete ${profile!.name}?`)) del.mutate();
+              onClick={async () => {
+                const ok = await openConfirm({
+                  title: `Delete "${profile!.name}"?`,
+                  confirmLabel: "Delete",
+                  variant: "danger",
+                });
+                if (ok) del.mutate();
               }}
             >
               Delete

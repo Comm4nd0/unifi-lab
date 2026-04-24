@@ -1,4 +1,5 @@
 import { FormEvent, useState } from "react";
+
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
@@ -6,6 +7,7 @@ import {
   endpoints,
   type ApiTokenWithPlaintext,
 } from "../api/client";
+import { useConfirm } from "../components/ConfirmDialog";
 import {
   Button,
   Card,
@@ -46,6 +48,7 @@ function humanRelative(iso: string | null): string {
 
 export function TokensPage() {
   const qc = useQueryClient();
+  const { openConfirm } = useConfirm();
   const list = useQuery({ queryKey: ["tokens"], queryFn: endpoints.tokens.list });
   const [creating, setCreating] = useState(false);
   const [fresh, setFresh] = useState<ApiTokenWithPlaintext | null>(null);
@@ -179,9 +182,14 @@ export function TokensPage() {
                     <Button
                       size="sm"
                       variant="danger"
-                      onClick={() => {
-                        if (confirm(`Revoke "${t.name}"? Any client using it will stop working.`))
-                          revoke.mutate(t.id);
+                      onClick={async () => {
+                        const ok = await openConfirm({
+                          title: `Revoke "${t.name}"?`,
+                          message: "Any client using this token will immediately lose access.",
+                          confirmLabel: "Revoke",
+                          variant: "danger",
+                        });
+                        if (ok) revoke.mutate(t.id);
                       }}
                       disabled={revoke.isPending}
                     >

@@ -3,6 +3,8 @@ import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { endpoints } from "../api/client";
+import { useConfirm } from "../components/ConfirmDialog";
+import { useToast } from "../components/toast";
 import { Button, Card, EmptyState, PageHeader, Select, StateChip } from "../components/ui";
 
 const READY_STATES = new Set(["adopted", "heartbeat"]);
@@ -50,12 +52,16 @@ export function ControllerDetailPage() {
     ? related.filter((d) => d.state === stateFilter)
     : related;
 
+  const toast = useToast();
+  const { openConfirm } = useConfirm();
+
   const del = useMutation({
     mutationFn: () => endpoints.controllers.delete(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["controllers"] });
       navigate({ to: "/controllers" });
     },
+    onError: (err) => toast.error(`Delete failed: ${(err as Error).message}`),
   });
 
   if (ctrl.isLoading) return <p className="text-sm text-slate-500">Loading…</p>;
@@ -77,8 +83,14 @@ export function ControllerDetailPage() {
             <Button
               variant="danger"
               size="sm"
-              onClick={() => {
-                if (confirm(`Delete ${c.name}?`)) del.mutate();
+              onClick={async () => {
+                const ok = await openConfirm({
+                  title: `Delete ${c.name}?`,
+                  message: "All fleets and devices targeting this controller will be unlinked.",
+                  confirmLabel: "Delete",
+                  variant: "danger",
+                });
+                if (ok) del.mutate();
               }}
               disabled={del.isPending}
             >

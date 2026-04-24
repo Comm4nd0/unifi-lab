@@ -2,6 +2,7 @@ import { ChangeEvent, DragEvent, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { ApiError, endpoints, type FirmwareBlob } from "../api/client";
+import { useConfirm } from "../components/ConfirmDialog";
 import { Card, EmptyState, PageHeader, StateChip } from "../components/ui";
 
 function humanSize(bytes: number): string {
@@ -13,6 +14,7 @@ function humanSize(bytes: number): string {
 
 export function FirmwarePage() {
   const qc = useQueryClient();
+  const { openConfirm } = useConfirm();
   const fileInput = useRef<HTMLInputElement>(null);
   const [dragActive, setDragActive] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
@@ -142,9 +144,15 @@ export function FirmwarePage() {
                   </td>
                   <td className="px-4 py-3 text-right">
                     <button
+                      type="button"
                       className="text-xs text-red-400 hover:text-red-300"
-                      onClick={() => {
-                        if (confirm(`Delete ${f.filename}?`)) del.mutate(f.id);
+                      onClick={async () => {
+                        const ok = await openConfirm({
+                          title: `Delete ${f.filename}?`,
+                          confirmLabel: "Delete",
+                          variant: "danger",
+                        });
+                        if (ok) del.mutate(f.id);
                       }}
                     >
                       Delete
