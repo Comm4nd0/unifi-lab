@@ -9,6 +9,7 @@ import {
 } from "../api/client";
 import { BlueprintCanvas } from "../components/BlueprintCanvas";
 import { BlueprintTopology } from "../components/BlueprintTopology";
+import { useConfirm } from "../components/ConfirmDialog";
 import { DevicePalette } from "../components/DevicePalette";
 import { YamlEditor } from "../components/YamlEditor";
 import { Button, Card, Input, Label, PageHeader, Select } from "../components/ui";
@@ -53,6 +54,7 @@ export function BlueprintEditorPage() {
   const isNew = !params.id || params.id === "new";
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const { openConfirm } = useConfirm();
 
   const existing = useQuery({
     queryKey: ["blueprints", params.id],
@@ -140,18 +142,20 @@ export function BlueprintEditorPage() {
   const onImportClick = () => fileInputRef.current?.click();
   const onFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    // Clear the input so the same file can be picked again after an
-    // aborted import — the change event only fires when the value
-    // actually changes.
     e.target.value = "";
     if (!file) return;
     const text = await file.text();
     if (
       source.trim() &&
-      source !== (getStarter("home")?.yaml ?? "") &&
-      !confirm(`Replace the current source with "${file.name}"? This cannot be undone.`)
+      source !== (getStarter("home")?.yaml ?? "")
     ) {
-      return;
+      const ok = await openConfirm({
+        title: `Replace current source with "${file.name}"?`,
+        message: "This cannot be undone.",
+        confirmLabel: "Replace",
+        variant: "danger",
+      });
+      if (!ok) return;
     }
     setSource(text);
   };
@@ -232,8 +236,14 @@ export function BlueprintEditorPage() {
               <Button
                 size="sm"
                 variant="danger"
-                onClick={() => {
-                  if (confirm(`Delete ${existing.data?.name}?`)) del.mutate();
+                onClick={async () => {
+                  const ok = await openConfirm({
+                    title: `Delete "${existing.data?.name}"?`,
+                    message: "This blueprint and all its version history will be removed.",
+                    confirmLabel: "Delete",
+                    variant: "danger",
+                  });
+                  if (ok) del.mutate();
                 }}
               >
                 Delete
@@ -253,19 +263,23 @@ export function BlueprintEditorPage() {
             <Label>Start from</Label>
             <Select
               defaultValue="home"
-              onChange={(e) => {
+              onChange={async (e) => {
                 const starter = getStarter(e.target.value);
                 if (!starter) return;
                 if (
                   source.trim() &&
-                  source !== (getStarter("home")?.yaml ?? "") &&
-                  !confirm(
-                    `Replace the current source with the "${starter.label}" starter? This cannot be undone.`,
-                  )
+                  source !== (getStarter("home")?.yaml ?? "")
                 ) {
-                  // Reset the Select back to whatever matches the current source (or "home").
-                  e.target.value = "home";
-                  return;
+                  const ok = await openConfirm({
+                    title: `Switch to "${starter.label}" starter?`,
+                    message: "This cannot be undone.",
+                    confirmLabel: "Switch",
+                    variant: "danger",
+                  });
+                  if (!ok) {
+                    e.target.value = "home";
+                    return;
+                  }
                 }
                 setSource(starter.yaml);
               }}

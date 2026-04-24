@@ -1,121 +1,113 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "@tanstack/react-router";
-import { useInfiniteQuery, useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 
-import { endpoints, type InformExchange } from "../api/client";
+import { endpoints } from "../api/client";
 import { useChannel } from "../api/ws";
 import { Button, Card, EmptyState, PageHeader, StateChip } from "../components/ui";
 
-const TYPE_TONE: Record<string, string> = {
-  adopt: "bg-indigo-900/40 text-indigo-300 border-indigo-800",
-  heartbeat: "bg-emerald-900/40 text-emerald-200 border-emerald-800",
-  config_push: "bg-sky-900/40 text-sky-200 border-sky-800",
-  stats: "bg-slate-900 text-slate-300 border-slate-700",
-  error: "bg-rose-900/40 text-rose-200 border-rose-800",
-};
-
-function humanRelative(iso: string | null | undefined): string {
-  if (!iso) return "—";
-  const delta = Date.now() - new Date(iso).getTime();
-  if (delta < 0) return "just now";
-  if (delta < 60_000) return `${Math.max(1, Math.round(delta / 1000))}s ago`;
-  if (delta < 3_600_000) return `${Math.round(delta / 60_000)}m ago`;
-  if (delta < 86_400_000) return `${Math.round(delta / 3_600_000)}h ago`;
-  return `${Math.round(delta / 86_400_000)}d ago`;
-}
-
-function payloadSize(p: Record<string, unknown> | null | undefined): number {
-  if (!p) return 0;
-  try {
-    return JSON.stringify(p).length;
-  } catch {
-    return 0;
-  }
-}
-
-function humanBytes(n: number): string {
-  if (n === 0) return "—";
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  return `${(n / 1024 / 1024).toFixed(1)} MB`;
-}
+type DirFilter = "" | "outbound" | "inbound";
 
 export function InformInspectorPage() {
   const { id } = useParams({ from: "/_app/devices/$id/inform" });
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const [liveRows, setLiveRows] = useState<InformExchange[]>([]);
-  const [copied, setCopied] = useState<string | null>(null);
+  const [paused, setPaused] = useState(false);
+  const [dirFilter, setDirFilter] = useState<DirFilter>("");
+  const [selectedIdx, setSelectedIdx] = useState(0);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
-  const device = useQuery({
-    queryKey: ["devices", id],
-    queryFn: () => endpoints.devices.get(id),
+  const device = useQuery({ queryKey: ["devices", id], queryFn: () => endpoints.devices.get(id) });
+
+  const { state, messages, clear } = useChannel({
+    path: paused ? "" : `/ws/devices/${id}/inform/`,
   });
-
-  // Historical log via the cursor endpoint. ``next`` is a full URL we
-  // pass straight back on the next page — see ``endpoints.devices.informLog``.
-  const history = useInfiniteQuery({
-    queryKey: ["devices", id, "inform-log"],
-    queryFn: ({ pageParam }: { pageParam: string | undefined }) =>
-      endpoints.devices.informLog(id, pageParam),
-    initialPageParam: undefined as string | undefined,
-    getNextPageParam: (lastPage) => lastPage.next ?? undefined,
-  });
-
-  // WebSocket live tail — the consumer sends full ``inform.exchange``
-  // envelopes with the serialized row as ``data``, so we can prepend
-  // straight into the list and dedupe against the historical page by id.
-  const { state: wsState, messages } = useChannel({ path: `/ws/devices/${id}/inform/` });
-
-  useEffect(() => {
-    const fresh: InformExchange[] = [];
-    for (const m of messages) {
-      if (m.type !== "inform.exchange") continue;
-      const data = m.data as InformExchange & { id?: string };
-      if (!data || typeof data.id !== "string") continue;
-      fresh.push(data);
-    }
-    // Keep only rows that aren't already in the historical first page.
-    setLiveRows(fresh);
-  }, [messages]);
 
   const force = useMutation({
     mutationFn: () => endpoints.devices.forceInform(id),
   });
 
-  const historyRows = history.data?.pages.flatMap((p) => p.results) ?? [];
-
-  // Merge live + history, dedupe by id, newest first.
   const rows = useMemo(() => {
-    const seen = new Set<string>();
-    const out: InformExchange[] = [];
-    const pushMaybe = (row: InformExchange) => {
-      if (!row.id || seen.has(row.id)) return;
-      seen.add(row.id);
-      out.push(row);
-    };
-    // liveRows come in WS arrival order (oldest → newest as received).
-    // Reverse so newest lands first, matching the history ordering.
-    for (const r of [...liveRows].reverse()) pushMaybe(r);
-    for (const r of historyRows) pushMaybe(r);
-    return out;
-  }, [liveRows, historyRows]);
+    let r = messages.filter((m) => m.type !== "connection.ready");
+    if (dirFilter === "outbound") {
+      r = r.filter(
+        (m) =>
+          (m.data?.direction as string) === "outbound" ||
+          m.type?.includes("request"),
+      );
+    } else if (dirFilter === "inbound") {
+      r = r.filter(
+        (m) =>
+          (m.data?.direction as string) === "inbound" ||
+          m.type?.includes("response"),
+      );
+    }
+    return r;
+  }, [messages, dirFilter]);
 
-  const toggle = (rowId: string) => {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(rowId)) next.delete(rowId);
-      else next.add(rowId);
+  // Clamp selected index when rows shrink.
+  useEffect(() => {
+    setSelectedIdx((i) => Math.min(i, Math.max(0, rows.length - 1)));
+  }, [rows.length]);
+
+  // j/k keyboard navigation + Enter/Space to expand.
+  const rowsRef = useRef(rows);
+  rowsRef.current = rows;
+  const selectedIdxRef = useRef(selectedIdx);
+  selectedIdxRef.current = selectedIdx;
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        e.target instanceof HTMLSelectElement
+      )
+        return;
+      if (e.key === "j") {
+        setSelectedIdx((i) => Math.min(rowsRef.current.length - 1, i + 1));
+        e.preventDefault();
+      } else if (e.key === "k") {
+        setSelectedIdx((i) => Math.max(0, i - 1));
+        e.preventDefault();
+      } else if (e.key === "Enter" || e.key === " ") {
+        const row = rowsRef.current[selectedIdxRef.current];
+        if (!row) return;
+        const rid = rowId(row, selectedIdxRef.current);
+        setExpandedIds((s) => {
+          const next = new Set(s);
+          if (next.has(rid)) next.delete(rid);
+          else next.add(rid);
+          return next;
+        });
+        e.preventDefault();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const toggleExpand = (rid: string) => {
+    setExpandedIds((s) => {
+      const next = new Set(s);
+      if (next.has(rid)) next.delete(rid);
+      else next.add(rid);
       return next;
     });
   };
 
-  const copy = async (key: string, text: string) => {
+  const allExpanded = rows.length > 0 && rows.every((r, i) => expandedIds.has(rowId(r, i)));
+  const toggleExpandAll = () => {
+    if (allExpanded) {
+      setExpandedIds(new Set());
+    } else {
+      setExpandedIds(new Set(rows.map((r, i) => rowId(r, i))));
+    }
+  };
+
+  const copyPayload = async (data: unknown) => {
     try {
-      await navigator.clipboard.writeText(text);
-      setCopied(key);
-      window.setTimeout(() => setCopied(null), 1500);
+      await navigator.clipboard.writeText(JSON.stringify(data, null, 2));
     } catch {
-      // clipboard blocked — user can still select manually
+      // clipboard blocked
     }
   };
 
@@ -125,9 +117,7 @@ export function InformInspectorPage() {
         title="Inform Inspector"
         subtitle={
           device.data
-            ? `${device.data.mac_address} · ${device.data.model_code}${
-                device.data.hostname ? ` · ${device.data.hostname}` : ""
-              }`
+            ? `${device.data.mac_address} · ${device.data.model_code}`
             : "Loading device…"
         }
         actions={
@@ -145,218 +135,139 @@ export function InformInspectorPage() {
               onClick={() => force.mutate()}
               disabled={force.isPending}
             >
-              {force.isPending ? "Forcing…" : "Force inform"}
+              Force inform
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => setPaused((p) => !p)}>
+              {paused ? "Resume" : "Pause"}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={clear}>
+              Clear
             </Button>
           </>
         }
       />
 
-      <div className="mb-4 flex items-center gap-3 text-xs text-slate-500">
-        <span>Live:</span>
-        <StateChip state={wsState} />
-        <span className="text-slate-700">·</span>
-        <span>
-          {rows.length} exchange{rows.length === 1 ? "" : "s"} loaded
-          {liveRows.length > 0 && (
-            <span className="ml-1 text-emerald-400">
-              ({liveRows.length} live)
-            </span>
-          )}
+      {/* Status + filter bar */}
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <span className="flex items-center gap-2 text-sm text-slate-400">
+          <span>WebSocket:</span>
+          <StateChip state={state} />
         </span>
-      </div>
+        <span className="text-slate-700">·</span>
+        <span className="text-sm text-slate-400">
+          {rows.length} message{rows.length === 1 ? "" : "s"}
+        </span>
 
-      {history.isLoading && !history.data && (
-        <p className="text-sm text-slate-500">Loading inform log…</p>
-      )}
-      {history.data && rows.length === 0 && (
-        <EmptyState
-          title="No inform exchanges yet"
-          hint="Trigger one with Force inform, or wait for the worker's next heartbeat tick."
-        />
-      )}
-
-      {rows.length > 0 && (
-        <Card className="p-0 overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-900/60 text-xs uppercase text-slate-400">
-              <tr>
-                <th className="px-4 py-2 text-left font-medium">When</th>
-                <th className="px-4 py-2 text-left font-medium">Type</th>
-                <th className="px-4 py-2 text-left font-medium">Direction</th>
-                <th className="px-4 py-2 text-right font-medium">Size</th>
-                <th className="px-4 py-2" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800">
-              {rows.map((r) => {
-                const isExpanded = expanded.has(r.id);
-                const typeClass =
-                  TYPE_TONE[r.exchange_type] ?? TYPE_TONE.stats;
-                const hasIn = !!r.payload_in;
-                const hasOut = !!r.payload_out;
-                const totalSize =
-                  payloadSize(r.payload_in) + payloadSize(r.payload_out);
-                return (
-                  <ExchangeRow
-                    key={r.id}
-                    row={r}
-                    isExpanded={isExpanded}
-                    typeClass={typeClass}
-                    hasIn={hasIn}
-                    hasOut={hasOut}
-                    totalSize={totalSize}
-                    copiedKey={copied}
-                    onToggle={() => toggle(r.id)}
-                    onCopy={copy}
-                  />
-                );
-              })}
-            </tbody>
-          </table>
-          <div className="flex items-center justify-between border-t border-slate-800 px-4 py-3 text-xs text-slate-500">
-            <span>
-              Showing {rows.length.toLocaleString()} exchange
-              {rows.length === 1 ? "" : "s"} (newest first).
-            </span>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => history.fetchNextPage()}
-              disabled={!history.hasNextPage || history.isFetchingNextPage}
+        {/* Direction filter */}
+        <div className="ml-auto flex overflow-hidden rounded-md border border-slate-800 bg-slate-900 text-xs">
+          {(
+            [
+              { v: "" as DirFilter, label: "All" },
+              { v: "outbound" as DirFilter, label: "↑ Outbound" },
+              { v: "inbound" as DirFilter, label: "↓ Inbound" },
+            ] as const
+          ).map(({ v, label }) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setDirFilter(v)}
+              className={
+                "px-3 py-1.5 transition " +
+                (dirFilter === v
+                  ? "bg-indigo-600 text-white"
+                  : "text-slate-400 hover:text-slate-200")
+              }
             >
-              {history.isFetchingNextPage
-                ? "Loading…"
-                : history.hasNextPage
-                  ? "Load older →"
-                  : "End of log"}
-            </Button>
-          </div>
-        </Card>
-      )}
-    </>
-  );
-}
+              {label}
+            </button>
+          ))}
+        </div>
 
-function ExchangeRow({
-  row,
-  isExpanded,
-  typeClass,
-  hasIn,
-  hasOut,
-  totalSize,
-  copiedKey,
-  onToggle,
-  onCopy,
-}: {
-  row: InformExchange;
-  isExpanded: boolean;
-  typeClass: string;
-  hasIn: boolean;
-  hasOut: boolean;
-  totalSize: number;
-  copiedKey: string | null;
-  onToggle: () => void;
-  onCopy: (key: string, text: string) => void;
-}) {
-  const inJson = hasIn ? JSON.stringify(row.payload_in, null, 2) : "";
-  const outJson = hasOut ? JSON.stringify(row.payload_out, null, 2) : "";
-
-  return (
-    <>
-      <tr className="hover:bg-slate-900/40">
-        <td className="px-4 py-2 align-top font-mono text-xs">
-          <div className="text-slate-300">{humanRelative(row.exchanged_at)}</div>
-          <div className="text-[10px] text-slate-600">
-            {row.exchanged_at ? new Date(row.exchanged_at).toLocaleString() : "—"}
-          </div>
-        </td>
-        <td className="px-4 py-2 align-top">
-          <span
-            className={`inline-flex items-center rounded border px-1.5 py-0.5 font-mono text-[10px] uppercase ${typeClass}`}
-          >
-            {row.exchange_type}
-          </span>
-        </td>
-        <td className="px-4 py-2 align-top font-mono text-[11px] text-slate-400">
-          {hasIn && <span title="device → controller">▲ in</span>}
-          {hasIn && hasOut && <span className="mx-1 text-slate-600">·</span>}
-          {hasOut && <span title="controller → device">▼ out</span>}
-          {!hasIn && !hasOut && <span className="text-slate-600">—</span>}
-        </td>
-        <td className="px-4 py-2 text-right align-top font-mono text-xs text-slate-500">
-          {humanBytes(totalSize)}
-        </td>
-        <td className="px-4 py-2 text-right align-top">
+        {rows.length > 0 && (
           <button
             type="button"
-            onClick={onToggle}
-            className="text-xs text-indigo-400 hover:text-indigo-300"
+            onClick={toggleExpandAll}
+            className="text-xs text-slate-400 hover:text-white"
           >
-            {isExpanded ? "Hide" : "Details"}
+            {allExpanded ? "Collapse all" : "Expand all"}
           </button>
-        </td>
-      </tr>
-      {isExpanded && (
-        <tr className="bg-slate-950">
-          <td colSpan={5} className="px-4 py-3">
-            <div className="grid gap-3 md:grid-cols-2">
-              <PayloadBlock
-                label="payload_in"
-                content={inJson || "null"}
-                hint="device → controller"
-                copyKey={`${row.id}-in`}
-                copiedKey={copiedKey}
-                onCopy={onCopy}
-              />
-              <PayloadBlock
-                label="payload_out"
-                content={outJson || "null"}
-                hint="controller → device"
-                copyKey={`${row.id}-out`}
-                copiedKey={copiedKey}
-                onCopy={onCopy}
-              />
-            </div>
-          </td>
-        </tr>
+        )}
+      </div>
+
+      {rows.length === 0 ? (
+        <EmptyState
+          title="No exchanges yet"
+          hint="Inform protocol codec is stubbed. Once the engine starts generating real traffic, it will stream here live."
+        />
+      ) : (
+        <Card className="p-0 overflow-hidden">
+          <ul className="divide-y divide-slate-800">
+            {rows.map((m, i) => {
+              const rid = rowId(m, i);
+              const expanded = expandedIds.has(rid);
+              const isSelected = i === selectedIdx;
+              const dir = (m.data?.direction as string) ?? (m.type?.includes("request") ? "outbound" : m.type?.includes("response") ? "inbound" : "");
+              return (
+                <li
+                  key={rid}
+                  className={
+                    "font-mono text-xs transition-colors " +
+                    (isSelected ? "bg-indigo-950/40 ring-1 ring-inset ring-indigo-800" : "hover:bg-slate-900/40")
+                  }
+                  onClick={() => {
+                    setSelectedIdx(i);
+                    toggleExpand(rid);
+                  }}
+                >
+                  <div className="flex cursor-pointer items-center gap-3 px-4 py-3 select-none">
+                    <span className="w-6 text-slate-600">#{m.seq ?? "?"}</span>
+                    <span className="text-slate-500">{m.ts}</span>
+                    <span className="rounded bg-indigo-900/40 px-2 py-0.5 text-indigo-300">
+                      {m.type}
+                    </span>
+                    {dir === "outbound" && (
+                      <span className="text-emerald-400" title="Device → Controller">↑</span>
+                    )}
+                    {dir === "inbound" && (
+                      <span className="text-amber-400" title="Controller → Device">↓</span>
+                    )}
+                    <span className="ml-auto text-slate-600">{expanded ? "▲" : "▼"}</span>
+                  </div>
+                  {expanded && (
+                    <div className="px-4 pb-3">
+                      <div className="flex items-center justify-end gap-2 pb-1">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            copyPayload(m.data);
+                          }}
+                          className="text-[10px] text-slate-500 hover:text-slate-300"
+                        >
+                          Copy JSON
+                        </button>
+                      </div>
+                      <pre className="overflow-x-auto rounded bg-slate-950 p-3 text-[11px] text-slate-300">
+                        {JSON.stringify(m.data, null, 2)}
+                      </pre>
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </Card>
       )}
+
+      <p className="mt-4 text-xs text-slate-600">
+        <kbd className="rounded bg-slate-800 px-1 font-mono">j</kbd>/
+        <kbd className="rounded bg-slate-800 px-1 font-mono">k</kbd> navigate ·{" "}
+        <kbd className="rounded bg-slate-800 px-1 font-mono">Enter</kbd> expand/collapse
+      </p>
     </>
   );
 }
 
-function PayloadBlock({
-  label,
-  content,
-  hint,
-  copyKey,
-  copiedKey,
-  onCopy,
-}: {
-  label: string;
-  content: string;
-  hint: string;
-  copyKey: string;
-  copiedKey: string | null;
-  onCopy: (key: string, text: string) => void;
-}) {
-  return (
-    <div className="min-w-0">
-      <div className="flex items-baseline justify-between gap-2">
-        <p className="font-mono text-[10px] uppercase tracking-wide text-slate-500">
-          {label} <span className="ml-1 text-slate-600">· {hint}</span>
-        </p>
-        <button
-          type="button"
-          onClick={() => onCopy(copyKey, content)}
-          className="text-[10px] text-slate-500 hover:text-slate-300"
-          disabled={content === "null"}
-        >
-          {copiedKey === copyKey ? "Copied ✓" : "Copy"}
-        </button>
-      </div>
-      <pre className="mt-1 max-h-80 overflow-auto rounded border border-slate-800 bg-slate-950 p-2 font-mono text-[11px] text-slate-300">
-        {content}
-      </pre>
-    </div>
-  );
+function rowId(m: { seq?: number }, i: number): string {
+  return m.seq != null ? `seq-${m.seq}` : `idx-${i}`;
 }

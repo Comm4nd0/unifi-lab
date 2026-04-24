@@ -3,6 +3,8 @@ import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { endpoints } from "../api/client";
+import { useConfirm } from "../components/ConfirmDialog";
+import { useToast } from "../components/toast";
 import { FlowRateChart } from "../components/FlowRateChart";
 import { PortMap } from "../components/PortMap";
 import { Button, Card, EmptyState, PageHeader, StateChip } from "../components/ui";
@@ -17,6 +19,9 @@ export function DeviceDetailPage() {
 
   const [tab, setTab] = useState<Tab>("overview");
 
+  const toast = useToast();
+  const { openConfirm } = useConfirm();
+
   const device = useQuery({
     queryKey: ["devices", id],
     queryFn: () => endpoints.devices.get(id),
@@ -29,6 +34,7 @@ export function DeviceDetailPage() {
       qc.invalidateQueries({ queryKey: ["devices"] });
       navigate({ to: "/devices" });
     },
+    onError: (err) => toast.error(`Delete failed: ${(err as Error).message}`),
   });
 
   const force = useMutation({
@@ -78,8 +84,14 @@ export function DeviceDetailPage() {
             <Button
               variant="danger"
               size="sm"
-              onClick={() => {
-                if (confirm(`Delete device ${d.mac_address}?`)) del.mutate();
+              onClick={async () => {
+                const ok = await openConfirm({
+                  title: `Delete ${d.mac_address}?`,
+                  message: "The device record will be removed from the engine.",
+                  confirmLabel: "Delete",
+                  variant: "danger",
+                });
+                if (ok) del.mutate();
               }}
               disabled={del.isPending}
             >
