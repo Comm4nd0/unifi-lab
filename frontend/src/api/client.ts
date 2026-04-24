@@ -264,6 +264,31 @@ export type Paginated<T> = {
   results: T[];
 };
 
+/** Cursor-paginated envelope — no count, opaque cursor URLs. */
+export type CursorPage<T> = {
+  next: string | null;
+  previous: string | null;
+  results: T[];
+};
+
+export type InformExchangeType =
+  | "adopt"
+  | "heartbeat"
+  | "config_push"
+  | "stats"
+  | "error"
+  | string;
+
+export type InformExchange = {
+  id: string;
+  device?: string;
+  exchange_type: InformExchangeType;
+  payload_in: Record<string, unknown> | null;
+  payload_out: Record<string, unknown> | null;
+  exchanged_at: string | null;
+  created_at?: string;
+};
+
 export type FlowStatsBucket = {
   t: string;
   allowed: number;
@@ -308,6 +333,12 @@ export const endpoints = {
       api.post<{ accepted: boolean; device_id: string }>(`/api/v1/devices/${id}/force-inform/`),
     disconnect: (id: string) => api.post<VirtualDevice>(`/api/v1/devices/${id}/disconnect/`),
     reconnect: (id: string) => api.post<VirtualDevice>(`/api/v1/devices/${id}/reconnect/`),
+    informLog: (id: string, cursor?: string) => {
+      // ``next`` from the cursor envelope is a full URL including the
+      // cursor query — pass it through as-is when paging older.
+      const url = cursor ?? `/api/v1/devices/${id}/inform-log/`;
+      return api.get<CursorPage<InformExchange>>(url);
+    },
   },
   templates: {
     list: () => api.get<Paginated<DeviceTemplate>>("/api/v1/templates/"),
