@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { endpoints } from "../api/client";
 import { HealthCheckModal } from "../components/HealthCheckModal";
+import { RotateSecretsModal } from "../components/RotateSecretsModal";
 import { Button, Card, EmptyState, PageHeader, Select, StateChip } from "../components/ui";
 
 const READY_STATES = new Set(["adopted", "heartbeat"]);
@@ -60,6 +61,7 @@ export function ControllerDetailPage() {
   });
 
   const [healthModalOpen, setHealthModalOpen] = useState(false);
+  const [secretsModalOpen, setSecretsModalOpen] = useState(false);
 
   if (ctrl.isLoading) return <p className="text-sm text-slate-500">Loading…</p>;
   if (ctrl.error) return <p className="text-sm text-red-400">{(ctrl.error as Error).message}</p>;
@@ -84,6 +86,14 @@ export function ControllerDetailPage() {
               title="Probe controller reachability + API credentials"
             >
               Check health
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setSecretsModalOpen(true)}
+              title="Update the controller's API username / password"
+            >
+              Rotate secrets
             </Button>
             <Button
               variant="danger"
@@ -319,6 +329,12 @@ export function ControllerDetailPage() {
         controllerId={id}
         open={healthModalOpen}
         onClose={() => setHealthModalOpen(false)}
+      />
+      <RotateSecretsModal
+        controllerId={id}
+        open={secretsModalOpen}
+        onClose={() => setSecretsModalOpen(false)}
+        onRotated={() => setHealthModalOpen(true)}
       />
     </>
   );

@@ -336,6 +336,10 @@ export const endpoints = {
     delete: (id: string) => api.delete<void>(`/api/v1/controllers/${id}/`),
     healthCheck: (id: string) =>
       api.post<HealthCheckResult>(`/api/v1/controllers/${id}/health-check/`),
+    rotateSecrets: (
+      id: string,
+      body: { api_username?: string; api_password?: string },
+    ) => api.post<ControllerTarget>(`/api/v1/controllers/${id}/secrets/`, body),
   },
   devices: {
     list: () => api.get<Paginated<VirtualDevice>>("/api/v1/devices/"),
