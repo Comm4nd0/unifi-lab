@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { endpoints } from "../api/client";
+import { HealthCheckModal } from "../components/HealthCheckModal";
 import { Button, Card, EmptyState, PageHeader, Select, StateChip } from "../components/ui";
 
 const READY_STATES = new Set(["adopted", "heartbeat"]);
@@ -58,13 +59,7 @@ export function ControllerDetailPage() {
     },
   });
 
-  const check = useMutation({
-    mutationFn: () => endpoints.controllers.healthCheck(id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["controllers", id] });
-      qc.invalidateQueries({ queryKey: ["controllers"] });
-    },
-  });
+  const [healthModalOpen, setHealthModalOpen] = useState(false);
 
   if (ctrl.isLoading) return <p className="text-sm text-slate-500">Loading…</p>;
   if (ctrl.error) return <p className="text-sm text-red-400">{(ctrl.error as Error).message}</p>;
@@ -85,11 +80,10 @@ export function ControllerDetailPage() {
             <Button
               variant="secondary"
               size="sm"
-              onClick={() => check.mutate()}
-              disabled={check.isPending}
-              title="Probe controller reachability (TCP/TLS on inform URL)"
+              onClick={() => setHealthModalOpen(true)}
+              title="Probe controller reachability + API credentials"
             >
-              {check.isPending ? "Checking…" : "Check health"}
+              Check health
             </Button>
             <Button
               variant="danger"
@@ -320,6 +314,12 @@ export function ControllerDetailPage() {
           </div>
         )}
       </section>
+
+      <HealthCheckModal
+        controllerId={id}
+        open={healthModalOpen}
+        onClose={() => setHealthModalOpen(false)}
+      />
     </>
   );
 }

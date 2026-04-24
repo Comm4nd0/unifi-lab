@@ -117,6 +117,18 @@ export type User = {
   created_at: string;
 };
 
+export type HealthCheckStep = {
+  name: "parse_url" | "tcp_connect" | "api_login" | string;
+  label: string;
+  status: "ok" | "failed" | "skipped" | "pending";
+  detail: string;
+  elapsed_ms?: number;
+};
+
+export type HealthCheckResult = ControllerTarget & {
+  steps: HealthCheckStep[];
+};
+
 export type ControllerTarget = {
   id: string;
   name: string;
@@ -323,7 +335,7 @@ export const endpoints = {
       api.post<ControllerTarget>("/api/v1/controllers/", body),
     delete: (id: string) => api.delete<void>(`/api/v1/controllers/${id}/`),
     healthCheck: (id: string) =>
-      api.post<ControllerTarget>(`/api/v1/controllers/${id}/health-check/`),
+      api.post<HealthCheckResult>(`/api/v1/controllers/${id}/health-check/`),
   },
   devices: {
     list: () => api.get<Paginated<VirtualDevice>>("/api/v1/devices/"),

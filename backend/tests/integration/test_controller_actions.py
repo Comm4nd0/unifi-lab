@@ -18,6 +18,11 @@ def test_health_check_runs_probe(api_client, controller_target):  # type: ignore
     # of the deterministic outcomes.
     assert body["health"] in {"ok", "auth-failed", "unreachable", "unknown"}
     assert body["last_verified_at"] is not None
+    # Steps array is always present with the three fixed stages.
+    assert [s["name"] for s in body["steps"]] == ["parse_url", "tcp_connect", "api_login"]
+    for step in body["steps"]:
+        assert step["status"] in {"ok", "failed", "skipped"}
+        assert "label" in step
 
 
 # The API-login stage of the probe is tested by mocking UosServerClient so
@@ -26,9 +31,16 @@ def test_health_check_runs_probe(api_client, controller_target):  # type: ignore
 
 
 @pytest.fixture
-def _mock_tcp_ok():  # type: ignore[no-untyped-def]
-    with patch("apps.controllers.views._tcp_probe", return_value=None) as m:
-        yield m
+def _mock_tcp_ok(monkeypatch):  # type: ignore[no-untyped-def]
+    """Monkeypatch socket.create_connection so the TCP step always succeeds."""
+    import contextlib
+
+    @contextlib.contextmanager
+    def fake_conn(*_a, **_kw):  # type: ignore[no-untyped-def]
+        yield object()
+
+    monkeypatch.setattr("apps.controllers.views.socket.create_connection", fake_conn)
+    return monkeypatch
 
 
 def _client_that_logs_in(raises: Exception | None = None):  # type: ignore[no-untyped-def]
@@ -93,19 +105,22 @@ def test_health_check_unreachable_on_network_error(api_client, controller_target
 
 
 @pytest.mark.django_db
-def test_health_check_unreachable_when_tcp_fails(api_client, controller_target):  # type: ignore[no-untyped-def]
+def test_health_check_unreachable_when_tcp_fails(api_client, controller_target, monkeypatch):  # type: ignore[no-untyped-def]
     """TCP short-circuit — login path shouldn't even be attempted."""
-    with (
-        patch(
-            "apps.controllers.views._tcp_probe",
-            return_value="unreachable",
-        ),
-        patch("apps.controllers.views.UosServerClient") as mocked_client,
-    ):
+
+    def raise_conn(*_a, **_kw):  # type: ignore[no-untyped-def]
+        raise ConnectionRefusedError("nope")
+
+    monkeypatch.setattr("apps.controllers.views.socket.create_connection", raise_conn)
+    with patch("apps.controllers.views.UosServerClient") as mocked_client:
         resp = api_client.post(f"/api/v1/controllers/{controller_target.id}/health-check/")
     assert resp.status_code == 200
     assert resp.data["health"] == "unreachable"
     assert not mocked_client.called  # login never attempted
+    # TCP step failed, API step marked skipped.
+    steps = {s["name"]: s for s in resp.data["steps"]}
+    assert steps["tcp_connect"]["status"] == "failed"
+    assert steps["api_login"]["status"] == "skipped"
     _ = AsyncMock  # keep the import warm for future expansion
 
 

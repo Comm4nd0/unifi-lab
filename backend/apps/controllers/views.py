@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import logging
 import socket
+import time
+from typing import Any
 from urllib.parse import urlparse
 
 from asgiref.sync import async_to_sync
@@ -18,29 +20,39 @@ from .serializers import ControllerSecretsSerializer, ControllerTargetSerializer
 
 log = logging.getLogger("uvl.controllers.probe")
 
+# --- Step machinery for the UI-facing probe ------------------------------
 
-def _tcp_probe(url: str) -> str | None:
-    """Quick reachability check. Returns ``None`` on success so the
-    caller can continue with the API probe; otherwise the health string.
+STEP_PARSE_URL = "parse_url"
+STEP_TCP_CONNECT = "tcp_connect"
+STEP_API_LOGIN = "api_login"
+
+STEP_LABELS = {
+    STEP_PARSE_URL: "Parse inform URL",
+    STEP_TCP_CONNECT: "Network reachable",
+    STEP_API_LOGIN: "Authenticate API credentials",
+}
+
+
+def _step(name: str, status_: str, detail: str = "", *, elapsed_ms: int | None = None) -> dict:
+    """Build a step row for the probe response.
+
+    ``status_`` is one of ``ok`` / ``failed`` / ``skipped`` / ``pending``.
     """
-    try:
-        parsed = urlparse(url)
-        host = parsed.hostname
-        port = parsed.port or (443 if parsed.scheme == "https" else 80)
-        if not host:
-            return ControllerTarget.HEALTH_UNKNOWN
-        with socket.create_connection((host, port), timeout=3):
-            return None
-    except (OSError, ValueError):
-        return ControllerTarget.HEALTH_UNREACHABLE
+    out: dict[str, Any] = {
+        "name": name,
+        "label": STEP_LABELS.get(name, name),
+        "status": status_,
+        "detail": detail,
+    }
+    if elapsed_ms is not None:
+        out["elapsed_ms"] = elapsed_ms
+    return out
 
 
-async def _api_login_probe(ctrl: ControllerTarget) -> str:
-    """Attempt an actual controller login via ``UosServerClient``.
+async def _probe_login(ctrl: ControllerTarget) -> tuple[str, str]:
+    """Run the UniFi API login and translate errors into (status, detail).
 
-    Distinguishes auth rejection from network failures so operators can
-    tell "wrong password" from "controller down". Never raises — always
-    returns a ``HEALTH_*`` constant.
+    Returns a 2-tuple: ``(step_status, detail)``. Never raises.
     """
     try:
         async with UosServerClient(
@@ -54,27 +66,76 @@ async def _api_login_probe(ctrl: ControllerTarget) -> str:
             await client.login()
     except UnifiApiError as exc:
         if 400 <= exc.status < 500:
-            return ControllerTarget.HEALTH_AUTH_FAILED
-        return ControllerTarget.HEALTH_UNREACHABLE
-    except Exception:
+            return "failed", f"controller rejected credentials ({exc.status})"
+        return "failed", f"controller returned {exc.status}"
+    except Exception as exc:  # noqa: BLE001 - intentional catch-all for probe
         log.exception("controller.probe.login.failed", extra={"controller": str(ctrl.id)})
-        return ControllerTarget.HEALTH_UNREACHABLE
-    return ControllerTarget.HEALTH_OK
+        return "failed", f"connection error: {type(exc).__name__}"
+    return "ok", "login accepted, session established"
 
 
-def _probe_controller(ctrl: ControllerTarget) -> str:
-    """Two-stage health probe: TCP reach, then real API login.
+def _probe_controller(ctrl: ControllerTarget) -> tuple[str, list[dict]]:
+    """Three-stage health probe returning overall status + per-step detail.
 
-    - URL is unparseable or hostname is missing → ``unknown``.
-    - TCP connect to the inform URL fails → ``unreachable``.
-    - Login returns 4xx → ``auth-failed``.
-    - Login returns 5xx, network error, or any other exception → ``unreachable``.
-    - Login succeeds → ``ok``.
+    Steps:
+      1. parse_url — check the inform URL has a hostname/port we can use
+      2. tcp_connect — open a raw socket to host:port
+      3. api_login — actually log into the controller's API
+
+    On failure at any step the remaining steps are marked ``skipped``;
+    the frontend renders them greyed out.
     """
-    tcp_result = _tcp_probe(ctrl.inform_url)
-    if tcp_result is not None:
-        return tcp_result
-    return async_to_sync(_api_login_probe)(ctrl)
+    steps: list[dict] = []
+
+    # 1. Parse URL
+    t0 = time.monotonic()
+    parsed = urlparse(ctrl.inform_url)
+    host = parsed.hostname
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    parse_elapsed = int((time.monotonic() - t0) * 1000)
+    if not host:
+        steps.append(_step(STEP_PARSE_URL, "failed", "inform URL missing hostname", elapsed_ms=parse_elapsed))
+        steps.append(_step(STEP_TCP_CONNECT, "skipped"))
+        steps.append(_step(STEP_API_LOGIN, "skipped"))
+        return ControllerTarget.HEALTH_UNKNOWN, steps
+    steps.append(
+        _step(STEP_PARSE_URL, "ok", f"{host}:{port} · {parsed.scheme}", elapsed_ms=parse_elapsed)
+    )
+
+    # 2. TCP connect
+    t0 = time.monotonic()
+    try:
+        with socket.create_connection((host, port), timeout=3):
+            pass
+    except OSError as exc:
+        steps.append(
+            _step(
+                STEP_TCP_CONNECT,
+                "failed",
+                f"cannot reach {host}:{port} · {type(exc).__name__}",
+                elapsed_ms=int((time.monotonic() - t0) * 1000),
+            )
+        )
+        steps.append(_step(STEP_API_LOGIN, "skipped"))
+        return ControllerTarget.HEALTH_UNREACHABLE, steps
+    steps.append(
+        _step(
+            STEP_TCP_CONNECT,
+            "ok",
+            f"TCP handshake in {int((time.monotonic() - t0) * 1000)}ms",
+        )
+    )
+
+    # 3. API login
+    t0 = time.monotonic()
+    login_status, login_detail = async_to_sync(_probe_login)(ctrl)
+    login_elapsed = int((time.monotonic() - t0) * 1000)
+    steps.append(_step(STEP_API_LOGIN, login_status, login_detail, elapsed_ms=login_elapsed))
+    if login_status == "ok":
+        return ControllerTarget.HEALTH_OK, steps
+    if "rejected credentials" in login_detail:
+        return ControllerTarget.HEALTH_AUTH_FAILED, steps
+    return ControllerTarget.HEALTH_UNREACHABLE, steps
 
 
 class ControllerTargetViewSet(viewsets.ModelViewSet):
@@ -84,10 +145,16 @@ class ControllerTargetViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"], url_path="health-check")
     def health_check(self, request: Request, pk: str | None = None) -> Response:
         ctrl = self.get_object()
-        ctrl.health = _probe_controller(ctrl)
+        health, steps = _probe_controller(ctrl)
+        ctrl.health = health
         ctrl.last_verified_at = timezone.now()
         ctrl.save(update_fields=["health", "last_verified_at"])
-        return Response(self.get_serializer(ctrl).data)
+        data = self.get_serializer(ctrl).data
+        # ``steps`` is transient — not persisted, only echoed back to
+        # the caller so the UI can show each stage. Keeps the Controller
+        # serializer focused on durable fields.
+        data = {**data, "steps": steps}
+        return Response(data)
 
     @action(detail=True, methods=["post"], url_path="secrets")
     def rotate_secrets(self, request: Request, pk: str | None = None) -> Response:
