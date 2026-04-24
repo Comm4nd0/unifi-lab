@@ -13,6 +13,7 @@ from __future__ import annotations
 from django.urls import URLPattern, URLResolver, re_path
 
 from apps.devices.consumers import DeviceInformConsumer
+from apps.firmware.consumers import FirmwareProgressConsumer
 from apps.fleets.cluster_consumer import ClusterConsumer
 from apps.fleets.consumers import FleetConsumer
 
@@ -28,5 +29,9 @@ websocket_urlpatterns: list[URLPattern | URLResolver] = [
     re_path(
         r"^ws/cluster/?$",
         ClusterConsumer.as_asgi(),
+    ),
+    re_path(
+        r"^ws/firmware/(?P<blob_id>[0-9a-f-]{36})/?$",
+        FirmwareProgressConsumer.as_asgi(),
     ),
 ]

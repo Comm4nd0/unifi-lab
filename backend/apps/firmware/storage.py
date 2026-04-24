@@ -57,8 +57,7 @@ class FilesystemStorage:
 
 
 class S3Storage:
-    """MinIO / S3 backend. Thin placeholder — real boto3 client lands when
-    Marco confirms MinIO is provisioned on Luma001."""
+    """MinIO / S3 backend via the minio-py client."""
 
     def __init__(
         self,
@@ -66,23 +65,50 @@ class S3Storage:
         access_key: str,
         secret_key: str,
         bucket: str,
+        secure: bool = False,
     ) -> None:
-        self.endpoint = endpoint
-        self.access_key = access_key
-        self.secret_key = secret_key
+        try:
+            from minio import Minio  # type: ignore[import-untyped]
+        except ImportError as exc:
+            raise ImportError(
+                "minio package required — install with: uv add minio"
+            ) from exc
+
+        ep = endpoint.replace("https://", "").replace("http://", "")
+        use_tls = secure or endpoint.startswith("https://")
+        self._client = Minio(ep, access_key=access_key, secret_key=secret_key, secure=use_tls)
         self.bucket = bucket
+        self._ensure_bucket()
+
+    def _ensure_bucket(self) -> None:
+        try:
+            if not self._client.bucket_exists(self.bucket):
+                self._client.make_bucket(self.bucket)
+        except Exception:
+            pass
 
     def put(self, storage_key: str, fileobj: BinaryIO) -> None:
-        raise NotImplementedError("S3 storage not yet wired — set UVL_BLOB_BACKEND=filesystem")
+        import io
+
+        data = fileobj.read()
+        self._client.put_object(self.bucket, storage_key, io.BytesIO(data), length=len(data))
 
     def open(self, storage_key: str) -> BinaryIO:
-        raise NotImplementedError("S3 storage not yet wired")
+        import io
+
+        response = self._client.get_object(self.bucket, storage_key)
+        try:
+            data = response.read()
+        finally:
+            response.close()
+            response.release_conn()
+        return io.BytesIO(data)
 
     def url_for(self, storage_key: str) -> str:
         return f"s3://{self.bucket}/{storage_key}"
 
     def delete(self, storage_key: str) -> None:
-        raise NotImplementedError("S3 storage not yet wired")
+        self._client.remove_object(self.bucket, storage_key)
 
 
 def get_storage() -> BlobStorage:

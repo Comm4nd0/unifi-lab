@@ -47,6 +47,9 @@ dependencies = [
 
     # Observability
     "structlog>=24.1",
+
+    # Object storage
+    "minio>=7.2",
 ]
 
 [project.optional-dependencies]
@@ -92,7 +95,7 @@ exclude = ["build", ".venv", "**/migrations"]
 django_settings_module = "config.settings.test"
 
 [[tool.mypy.overrides]]
-module = ["channels.*", "celery.*", "drf_spectacular.*", "djoser.*"]
+module = ["channels.*", "celery.*", "drf_spectacular.*", "djoser.*", "minio.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
