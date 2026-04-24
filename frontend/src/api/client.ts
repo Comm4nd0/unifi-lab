@@ -265,6 +265,7 @@ export type Fleet = {
   auto_adopt: boolean;
   retired_at: string | null;
   device_states: Record<string, number>;
+  health: "healthy" | "degraded" | "critical" | "unknown";
   created_at: string;
   updated_at: string;
 };

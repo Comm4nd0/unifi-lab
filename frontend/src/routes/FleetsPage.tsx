@@ -225,6 +225,7 @@ export function FleetsPage() {
                   </th>
                   <th className="px-4 py-2 text-left font-medium">Name</th>
                   <th className="px-4 py-2 text-left font-medium">State</th>
+                  <th className="px-4 py-2 text-left font-medium">Health</th>
                   <th className="px-4 py-2 text-left font-medium">Devices</th>
                   <th className="px-4 py-2 text-left font-medium">Source</th>
                   <th className="px-4 py-2 text-left font-medium">Controller</th>
@@ -264,6 +265,24 @@ export function FleetsPage() {
                       </td>
                       <td className="px-4 py-3">
                         <StateChip state={f.state} />
+                      </td>
+                      <td className="px-4 py-3">
+                        {f.health !== "unknown" ? (
+                          <span
+                            className={
+                              "rounded px-1.5 py-0.5 text-[10px] font-medium " +
+                              (f.health === "healthy"
+                                ? "bg-emerald-900/40 text-emerald-300"
+                                : f.health === "degraded"
+                                  ? "bg-amber-900/40 text-amber-300"
+                                  : "bg-red-900/40 text-red-300")
+                            }
+                          >
+                            {f.health}
+                          </span>
+                        ) : (
+                          <span className="text-slate-600">—</span>
+                        )}
                       </td>
                       <td className="px-4 py-3 font-mono text-xs">{f.device_count}</td>
                       <td className="px-4 py-3 text-slate-400">
