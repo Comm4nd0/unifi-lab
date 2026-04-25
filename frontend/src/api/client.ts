@@ -61,10 +61,11 @@ async function request<T>(path: string, init?: RequestOptions): Promise<T> {
 
   if (!resp.ok) {
     let body: unknown;
+    const raw = await resp.text();
     try {
-      body = await resp.json();
+      body = JSON.parse(raw);
     } catch {
-      body = await resp.text();
+      body = raw;
     }
     const message =
       typeof body === "object" && body !== null && "detail" in body
