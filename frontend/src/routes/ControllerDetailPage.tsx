@@ -55,6 +55,10 @@ export function ControllerDetailPage() {
     ? related.filter((d) => d.state === stateFilter)
     : related;
 
+  const [showHealthCheck, setShowHealthCheck] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
+  const [showRotate, setShowRotate] = useState(false);
+
   const toast = useToast();
   const { openConfirm } = useConfirm();
 
@@ -83,6 +87,15 @@ export function ControllerDetailPage() {
             <Link to="/controllers" className="text-sm text-slate-400 hover:text-white">
               ← All controllers
             </Link>
+            <Button size="sm" onClick={() => setShowHealthCheck(true)}>
+              Health check
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setShowEdit(true)}>
+              Edit
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setShowRotate(true)}>
+              Rotate secrets
+            </Button>
             <Button
               variant="danger"
               size="sm"
@@ -101,6 +114,23 @@ export function ControllerDetailPage() {
             </Button>
           </>
         }
+      />
+
+      <HealthCheckModal
+        controllerId={id}
+        open={showHealthCheck}
+        onClose={() => setShowHealthCheck(false)}
+      />
+      <EditControllerModal
+        controller={c}
+        open={showEdit}
+        onClose={() => setShowEdit(false)}
+      />
+      <RotateSecretsModal
+        controllerId={id}
+        open={showRotate}
+        onClose={() => setShowRotate(false)}
+        onRotated={() => qc.invalidateQueries({ queryKey: ["controllers", id] })}
       />
 
       <div className="mb-4 grid gap-4 md:grid-cols-4">
