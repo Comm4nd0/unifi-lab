@@ -35,24 +35,15 @@ from sqlalchemy.sql import func
 
 from .._time import utcnow
 from ..db.models import FlowRecord, TrafficProfile, VirtualDevice
+from .dpi import lookup_app as _dpi_lookup
 
 log = logging.getLogger("uvl.engine.traffic")
-
-APP_DEFAULTS: dict[str, tuple[str, int]] = {
-    "HTTPS": ("tcp", 443),
-    "HTTP": ("tcp", 80),
-    "DNS": ("udp", 53),
-    "SSH": ("tcp", 22),
-    "mDNS": ("udp", 5353),
-    "NTP": ("udp", 123),
-    "Cloud Services": ("tcp", 443),
-}
 
 
 def _resolve_proto_port(spec: dict[str, Any]) -> tuple[str, int | None]:
     app = str(spec.get("app") or "HTTPS")
-    proto, port = APP_DEFAULTS.get(app, ("tcp", 443))
-    # Explicit overrides win.
+    # DPI fixture is the authoritative source; explicit spec overrides win.
+    _app_id, _cat_id, proto, port = _dpi_lookup(app)
     if "protocol" in spec:
         proto = str(spec["protocol"]).lower()
     if "port" in spec:
