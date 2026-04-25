@@ -7,8 +7,8 @@ Progress events are pushed to the ``firmware.<blob_id>`` Channels group.
 
 from __future__ import annotations
 
+import contextlib
 import logging
-import os
 import re
 import subprocess
 import tempfile
@@ -44,13 +44,11 @@ def _push_progress(
         "detail": detail,
         "error": error,
     }
-    try:
+    with contextlib.suppress(Exception):  # never let progress push break the task
         async_to_sync(layer.group_send)(
             f"firmware.{blob_id}",
             {"type": "firmware.progress", "payload": payload},
         )
-    except Exception:
-        pass  # never let progress push break the task
 
 
 # ── main task ─────────────────────────────────────────────────────────────────
@@ -151,10 +149,8 @@ def _binwalk_offsets(fw_path: Path) -> list[int]:
         if "squashfs" in line.lower():
             parts = line.strip().split()
             if parts:
-                try:
+                with contextlib.suppress(ValueError):
                     offsets.append(int(parts[0]))
-                except ValueError:
-                    pass
     return offsets
 
 
@@ -226,15 +222,11 @@ def _extract_caps(squash_dir: Path) -> dict[str, int]:
         return caps
     for line in board_info.read_text(errors="replace").splitlines():
         if line.startswith("port.count="):
-            try:
+            with contextlib.suppress(ValueError):
                 caps["port_count"] = int(line.split("=", 1)[1].strip())
-            except ValueError:
-                pass
         elif line.startswith("radio.count="):
-            try:
+            with contextlib.suppress(ValueError):
                 caps["radio_count"] = int(line.split("=", 1)[1].strip())
-            except ValueError:
-                pass
     return caps
 
 

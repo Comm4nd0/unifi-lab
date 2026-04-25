@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import contextlib
+
 from rest_framework import status, viewsets
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.request import Request
@@ -49,10 +51,7 @@ class FirmwareBlobViewSet(viewsets.ReadOnlyModelViewSet):
 
     def destroy(self, request: Request, *args, **kwargs) -> Response:  # type: ignore[no-untyped-def]
         blob = self.get_object()
-        try:
+        with contextlib.suppress(Exception):  # storage backend can be transient
             get_storage().delete(blob.storage_key)
-        except Exception:
-            # Storage backend can be transient; we still delete the row.
-            pass
         blob.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)

@@ -52,6 +52,7 @@ class Supervisor:
     ) -> None:
         self.cfg = cfg
         self._tasks: dict[str, asyncio.Task[None]] = {}
+        self._background_tasks: set[asyncio.Task[None]] = set()  # keeps fire-and-forget tasks alive
         self._command_task: asyncio.Task[None] | None = None
         self._traffic_task: asyncio.Task[None] | None = None
         self._heartbeat_task: asyncio.Task[None] | None = None
@@ -150,10 +151,12 @@ class Supervisor:
                 if action == "spawn":
                     delay_ms = int(envelope.get("delay_ms") or 0)
                     auto_adopt = bool(envelope.get("auto_adopt"))
-                    asyncio.create_task(
+                    task = asyncio.create_task(
                         self._delayed_spawn(device_id, delay_ms, auto_adopt=auto_adopt),
                         name=f"delayed-spawn:{device_id}",
                     )
+                    self._background_tasks.add(task)
+                    task.add_done_callback(self._background_tasks.discard)
                 elif action == "despawn":
                     await self._despawn_device(device_id)
                 elif action == "force_inform":

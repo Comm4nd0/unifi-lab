@@ -6,10 +6,10 @@ but lives in the worker's memory — Django only sees checkpoint updates.
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 
-class DeviceState(str, Enum):
+class DeviceState(StrEnum):
     PENDING = "pending"
     KEY_EXCHANGE = "key_exchange"
     HEARTBEAT = "heartbeat"

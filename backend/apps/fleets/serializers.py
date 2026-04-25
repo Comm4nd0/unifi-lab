@@ -4,7 +4,6 @@ from rest_framework import serializers
 
 from .models import Fleet
 
-
 _READY_STATES = frozenset({"adopted", "heartbeat"})
 
 

@@ -77,7 +77,10 @@ exclude = [".venv", "**/migrations/**"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "RUF", "SIM"]
-ignore = ["E501"]  # line length handled by formatter
+ignore = [
+    "E501",    # line length handled by formatter
+    "RUF012",  # Django class attrs (CHOICES, Meta.indexes, permission_classes) are valid ClassVar-like patterns
+]
 
 [tool.ruff.lint.isort]
 known-first-party = ["apps", "engine", "config"]

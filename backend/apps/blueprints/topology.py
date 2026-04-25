@@ -18,7 +18,7 @@ from __future__ import annotations
 import hashlib
 import random
 from dataclasses import dataclass, field
-from ipaddress import IPv4Address, IPv4Network
+from ipaddress import IPv4Network
 from typing import Any
 
 # ── Personas ──────────────────────────────────────────────────────────────────
@@ -130,7 +130,7 @@ class Link:
     src: str      # hostname
     dst: str      # hostname
     link_type: str = "wired"  # "wired" | "wireless"
-    utilization: float = 0.0  # 0.0–1.0 for edge colour rendering
+    utilization: float = 0.0  # 0.0-1.0 for edge colour rendering
 
 
 @dataclass
@@ -195,9 +195,7 @@ class FirewallEngine:
             return False
         if rule.protocol and rule.protocol != protocol:
             return False
-        if rule.dst_port is not None and rule.dst_port != dst_port:
-            return False
-        return True
+        return not (rule.dst_port is not None and rule.dst_port != dst_port)
 
 
 # ── IP assignment ─────────────────────────────────────────────────────────────

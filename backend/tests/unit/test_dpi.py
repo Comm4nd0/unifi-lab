@@ -109,7 +109,7 @@ def test_lookup_port_can_be_none():
     """ICMP-like entries may have null port — lookup should return None, not crash."""
     from engine.traffic.dpi import lookup_app
     # ICMP entry in fixture has port=null
-    _id, _cat, proto, port = lookup_app("ICMP")
+    _id, _cat, proto, _port = lookup_app("ICMP")
     assert proto in ("icmp", "tcp", "udp")  # whatever the fixture says
     # port may be None (valid) or an int — just ensure no exception
 

@@ -1,8 +1,6 @@
 """Unit tests for backend/apps/blueprints/topology.py."""
 from __future__ import annotations
 
-import pytest
-
 from apps.blueprints.topology import (
     PERSONAS,
     FirewallEngine,
@@ -71,17 +69,17 @@ def test_topology_devices_list():
 
 def test_topology_uplink_links():
     site = build_topology(SIMPLE_BP)
-    wired = [(l.src, l.dst) for l in site.links if l.link_type == "wired"]
+    wired = [(lnk.src, lnk.dst) for lnk in site.links if lnk.link_type == "wired"]
     assert ("sw-01", "gw-01") in wired
     assert ("ap-01", "sw-01") in wired
 
 
 def test_topology_wireless_client_links():
     site = build_topology(SIMPLE_BP, clients_per_ap=2)
-    wireless = [(l.src, l.dst) for l in site.links if l.link_type == "wireless"]
-    # 2 APs × 2 clients each = 4 wireless links
+    wireless = [(lnk.src, lnk.dst) for lnk in site.links if lnk.link_type == "wireless"]
+    # 2 APs x 2 clients each = 4 wireless links
     assert len(wireless) == 4
-    dsts = {l.dst for l in site.links if l.link_type == "wireless"}
+    dsts = {lnk.dst for lnk in site.links if lnk.link_type == "wireless"}
     assert "ap-01" in dsts
     assert "ap-02" in dsts
 
@@ -115,7 +113,7 @@ def test_topology_client_macs_unique():
 def test_topology_deterministic_with_seed():
     s1 = build_topology(SIMPLE_BP, seed=42, clients_per_ap=3)
     s2 = build_topology(SIMPLE_BP, seed=42, clients_per_ap=3)
-    for c1, c2 in zip(s1.clients, s2.clients):
+    for c1, c2 in zip(s1.clients, s2.clients, strict=True):
         assert c1.persona == c2.persona
         assert c1.mac_address == c2.mac_address
 

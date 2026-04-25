@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from apps.blueprints.materialise import DeviceSpec, materialise
+from apps.blueprints.materialise import materialise
 from apps.blueprints.validator import ValidationResult, parse_yaml, validate
 
 # ── parse_yaml ────────────────────────────────────────────────────────────────

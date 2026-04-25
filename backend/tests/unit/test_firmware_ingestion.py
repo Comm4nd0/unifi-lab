@@ -16,7 +16,6 @@ from apps.firmware.tasks import (
     _identify_from_fs,
 )
 
-
 # ── _guess_family ─────────────────────────────────────────────────────────────
 
 

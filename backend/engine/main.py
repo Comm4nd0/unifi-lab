@@ -7,6 +7,7 @@ supervisor which in turn manages individual VirtualDevice tasks.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import signal
 
@@ -30,21 +31,16 @@ async def _run() -> None:
         stop.set()
 
     for sig in (signal.SIGTERM, signal.SIGINT):
-        try:
+        with contextlib.suppress(NotImplementedError):  # Windows lacks add_signal_handler for all sigs
             loop.add_signal_handler(sig, _request_stop)
-        except NotImplementedError:
-            # Windows doesn't support add_signal_handler for all signals
-            pass
 
     await stop.wait()
     await supervisor.shutdown()
 
 
 def main() -> None:
-    try:
+    with contextlib.suppress(KeyboardInterrupt):
         asyncio.run(_run())
-    except KeyboardInterrupt:
-        pass
 
 
 if __name__ == "__main__":

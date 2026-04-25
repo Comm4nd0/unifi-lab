@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from apps.devices.services import deterministic_mac, generate_mac, generate_serial
 
-
 # ── generate_mac ──────────────────────────────────────────────────────────────
 
 

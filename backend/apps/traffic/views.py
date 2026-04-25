@@ -70,7 +70,7 @@ class FlowRecordViewSet(viewsets.ReadOnlyModelViewSet):
         client_ips = [str(ip) for ip in list(subnet.hosts())[:50]]
 
         created: list[FlowRecord] = []
-        for i in range(count):
+        for _ in range(count):
             device = rng.choice(devices)
             app, proto, dst_port = rng.choice(apps_pool)
             blocked = rng.random() < 0.08
