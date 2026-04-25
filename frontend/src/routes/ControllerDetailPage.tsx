@@ -4,6 +4,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { endpoints } from "../api/client";
 import { useConfirm } from "../components/ConfirmDialog";
+import { EditControllerModal } from "../components/EditControllerModal";
+import { HealthCheckModal } from "../components/HealthCheckModal";
+import { RotateSecretsModal } from "../components/RotateSecretsModal";
 import { useToast } from "../components/toast";
 import { Button, Card, EmptyState, PageHeader, Select, StateChip } from "../components/ui";
 

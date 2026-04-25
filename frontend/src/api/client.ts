@@ -335,6 +335,12 @@ export const endpoints = {
     create: (body: Partial<ControllerTarget> & { api_username?: string; api_password?: string }) =>
       api.post<ControllerTarget>("/api/v1/controllers/", body),
     delete: (id: string) => api.delete<void>(`/api/v1/controllers/${id}/`),
+    update: (
+      id: string,
+      body: Partial<
+        Pick<ControllerTarget, "name" | "kind" | "inform_url" | "api_url" | "verify_tls" | "is_active">
+      >,
+    ) => api.patch<ControllerTarget>(`/api/v1/controllers/${id}/`, body),
     healthCheck: (id: string) =>
       api.post<HealthCheckResult>(`/api/v1/controllers/${id}/health-check/`),
     rotateSecrets: (
