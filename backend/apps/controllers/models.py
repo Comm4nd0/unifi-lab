@@ -14,9 +14,11 @@ from apps.common.models import BaseModel
 class ControllerTarget(BaseModel):
     KIND_UOS_SERVER = "uos-server"
     KIND_LEGACY = "legacy-network"
+    KIND_VIRTUAL = "virtual"
     KIND_CHOICES = [
         (KIND_UOS_SERVER, "UniFi OS Server"),
         (KIND_LEGACY, "Legacy Network"),
+        (KIND_VIRTUAL, "Virtual UDM (built-in)"),
     ]
 
     HEALTH_OK = "ok"

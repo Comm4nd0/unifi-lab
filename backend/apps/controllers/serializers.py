@@ -27,7 +27,27 @@ class ControllerTargetSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             "api_password": {"write_only": True},
             "api_username": {"write_only": True},
+            "inform_url": {"required": False, "allow_blank": True},
+            "api_url": {"required": False, "allow_blank": True},
         }
+
+    def validate(self, attrs):  # type: ignore[no-untyped-def]
+        kind = attrs.get("kind") or (self.instance.kind if self.instance else None)
+        if kind == ControllerTarget.KIND_VIRTUAL:
+            # Virtual controllers don't need real URLs or credentials —
+            # they're auto-populated on save by the viewset.
+            attrs.setdefault("api_username", "virtual")
+            attrs.setdefault("api_password", "virtual")
+            attrs.setdefault("inform_url", "auto")
+            attrs.setdefault("api_url", "auto")
+            attrs.setdefault("verify_tls", False)
+        else:
+            # Real controllers require URLs
+            if not attrs.get("inform_url") and not self.instance:
+                raise serializers.ValidationError({"inform_url": "This field is required."})
+            if not attrs.get("api_url") and not self.instance:
+                raise serializers.ValidationError({"api_url": "This field is required."})
+        return attrs
 
 
 class ControllerSecretsSerializer(serializers.Serializer):

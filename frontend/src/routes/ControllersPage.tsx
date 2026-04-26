@@ -96,23 +96,29 @@ function CreateControllerForm({
   onCreated: () => void;
 }) {
   const [name, setName] = useState("");
-  const [kind, setKind] = useState<"uos-server" | "legacy-network">("uos-server");
+  const [kind, setKind] = useState<"uos-server" | "legacy-network" | "virtual">("virtual");
   const [informUrl, setInformUrl] = useState("");
   const [apiUrl, setApiUrl] = useState("");
   const [apiUsername, setApiUsername] = useState("");
   const [apiPassword, setApiPassword] = useState("");
   const [verifyTls, setVerifyTls] = useState(false);
 
+  const isVirtual = kind === "virtual";
+
   const create = useMutation({
     mutationFn: () =>
       endpoints.controllers.create({
         name,
         kind,
-        inform_url: informUrl,
-        api_url: apiUrl,
-        api_username: apiUsername,
-        api_password: apiPassword,
-        verify_tls: verifyTls,
+        ...(isVirtual
+          ? {}
+          : {
+              inform_url: informUrl,
+              api_url: apiUrl,
+              api_username: apiUsername,
+              api_password: apiPassword,
+              verify_tls: verifyTls,
+            }),
       }),
     onSuccess: onCreated,
   });
@@ -126,7 +132,9 @@ function CreateControllerForm({
     <Card>
       <h2 className="text-lg font-semibold">New controller target</h2>
       <p className="mt-1 text-sm text-slate-400">
-        Credentials are stored Fernet-encrypted at rest.
+        {isVirtual
+          ? "UVL acts as a built-in virtual UDM — no real hardware required."
+          : "Credentials are stored Fernet-encrypted at rest."}
       </p>
       <form className="mt-4 grid gap-4 md:grid-cols-2" onSubmit={onSubmit}>
         <div className="flex flex-col gap-1.5">
@@ -135,57 +143,72 @@ function CreateControllerForm({
         </div>
         <div className="flex flex-col gap-1.5">
           <Label>Kind</Label>
-          <Select value={kind} onChange={(e) => setKind(e.target.value as "uos-server" | "legacy-network")}>
+          <Select value={kind} onChange={(e) => setKind(e.target.value as typeof kind)}>
+            <option value="virtual">Virtual UDM (built-in)</option>
             <option value="uos-server">UniFi OS Server</option>
             <option value="legacy-network">Legacy Network</option>
           </Select>
         </div>
-        <div className="flex flex-col gap-1.5 md:col-span-2">
-          <Label>Inform URL</Label>
-          <Input
-            required
-            placeholder="https://192.168.1.1:443"
-            value={informUrl}
-            onChange={(e) => setInformUrl(e.target.value)}
-          />
-        </div>
-        <div className="flex flex-col gap-1.5 md:col-span-2">
-          <Label>API URL</Label>
-          <Input
-            required
-            placeholder="https://192.168.1.1:443/api"
-            value={apiUrl}
-            onChange={(e) => setApiUrl(e.target.value)}
-          />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label>API username</Label>
-          <Input
-            required
-            autoComplete="off"
-            value={apiUsername}
-            onChange={(e) => setApiUsername(e.target.value)}
-          />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label>API password</Label>
-          <Input
-            required
-            type="password"
-            autoComplete="new-password"
-            value={apiPassword}
-            onChange={(e) => setApiPassword(e.target.value)}
-          />
-        </div>
-        <label className="flex items-center gap-2 text-sm text-slate-300 md:col-span-2">
-          <input
-            type="checkbox"
-            className="h-4 w-4 rounded border-slate-700 bg-slate-900"
-            checked={verifyTls}
-            onChange={(e) => setVerifyTls(e.target.checked)}
-          />
-          Verify TLS certificates
-        </label>
+        {isVirtual && (
+          <div className="md:col-span-2 rounded-md border border-emerald-900/50 bg-emerald-950/30 px-4 py-3">
+            <p className="text-sm text-emerald-300">No configuration needed</p>
+            <p className="mt-1 text-xs text-slate-400">
+              UVL will run a built-in controller that automatically accepts and adopts
+              virtual devices. Inform URLs are configured automatically. Perfect for
+              testing without real hardware.
+            </p>
+          </div>
+        )}
+        {!isVirtual && (
+          <>
+            <div className="flex flex-col gap-1.5 md:col-span-2">
+              <Label>Inform URL</Label>
+              <Input
+                required
+                placeholder="https://192.168.1.1:443"
+                value={informUrl}
+                onChange={(e) => setInformUrl(e.target.value)}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5 md:col-span-2">
+              <Label>API URL</Label>
+              <Input
+                required
+                placeholder="https://192.168.1.1:443/api"
+                value={apiUrl}
+                onChange={(e) => setApiUrl(e.target.value)}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>API username</Label>
+              <Input
+                required
+                autoComplete="off"
+                value={apiUsername}
+                onChange={(e) => setApiUsername(e.target.value)}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>API password</Label>
+              <Input
+                required
+                type="password"
+                autoComplete="new-password"
+                value={apiPassword}
+                onChange={(e) => setApiPassword(e.target.value)}
+              />
+            </div>
+            <label className="flex items-center gap-2 text-sm text-slate-300 md:col-span-2">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-slate-700 bg-slate-900"
+                checked={verifyTls}
+                onChange={(e) => setVerifyTls(e.target.checked)}
+              />
+              Verify TLS certificates
+            </label>
+          </>
+        )}
         {create.error && (
           <p className="text-sm text-red-400 md:col-span-2">
             {create.error instanceof ApiError ? create.error.message : String(create.error)}

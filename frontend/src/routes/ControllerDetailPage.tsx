@@ -81,7 +81,7 @@ export function ControllerDetailPage() {
     <>
       <PageHeader
         title={c.name}
-        subtitle={`Controller · ${c.kind}`}
+        subtitle={`Controller · ${c.kind === "virtual" ? "Virtual UDM (built-in)" : c.kind}`}
         actions={
           <>
             <Link to="/controllers" className="text-sm text-slate-400 hover:text-white">
@@ -93,9 +93,11 @@ export function ControllerDetailPage() {
             <Button variant="ghost" size="sm" onClick={() => setShowEdit(true)}>
               Edit
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => setShowRotate(true)}>
-              Rotate secrets
-            </Button>
+            {c.kind !== "virtual" && (
+              <Button variant="ghost" size="sm" onClick={() => setShowRotate(true)}>
+                Rotate secrets
+              </Button>
+            )}
             <Button
               variant="danger"
               size="sm"
@@ -182,7 +184,9 @@ export function ControllerDetailPage() {
             <dd className="font-mono text-xs break-all">{c.api_url}</dd>
           </dl>
           <p className="mt-4 text-xs text-slate-500">
-            API credentials are write-only; decrypt-and-display is out of scope for v1.
+            {c.kind === "virtual"
+              ? "Virtual controller — URLs are auto-managed by UVL. No external credentials."
+              : "API credentials are write-only; decrypt-and-display is out of scope for v1."}
           </p>
         </Card>
       </div>

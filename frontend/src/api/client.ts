@@ -133,7 +133,7 @@ export type HealthCheckResult = ControllerTarget & {
 export type ControllerTarget = {
   id: string;
   name: string;
-  kind: "uos-server" | "legacy-network";
+  kind: "uos-server" | "legacy-network" | "virtual";
   inform_url: string;
   api_url: string;
   verify_tls: boolean;

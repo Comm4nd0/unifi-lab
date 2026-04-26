@@ -108,55 +108,67 @@ export function EditControllerModal({
           <div>
             <Label>Kind</Label>
             <Select value={kind} onChange={(e) => setKind(e.target.value as typeof kind)}>
+              <option value="virtual">Virtual UDM (built-in)</option>
               <option value="uos-server">UniFi OS Server (UDM / UDM-Pro / UDR / UOS ≥3)</option>
               <option value="legacy-network">
                 UniFi Network (self-hosted / older firmware)
               </option>
             </Select>
-            <p className="mt-1 text-xs text-slate-500">
-              Picks the login-endpoint path:{" "}
-              <span className="font-mono">/api/auth/login</span> vs{" "}
-              <span className="font-mono">/api/login</span>. If health-check shows
-              {" "}<span className="font-mono">status 401 · Unauthorized</span> with credentials you
-              know are correct, switching this is usually the fix.
-            </p>
+            {kind === "virtual" ? (
+              <p className="mt-1 text-xs text-emerald-400">
+                UVL acts as the controller — no external hardware, credentials, or URLs needed.
+                Inform URLs are auto-configured.
+              </p>
+            ) : (
+              <p className="mt-1 text-xs text-slate-500">
+                Picks the login-endpoint path:{" "}
+                <span className="font-mono">/api/auth/login</span> vs{" "}
+                <span className="font-mono">/api/login</span>. If health-check shows
+                {" "}<span className="font-mono">status 401 · Unauthorized</span> with credentials you
+                know are correct, switching this is usually the fix.
+              </p>
+            )}
           </div>
-          <div>
-            <Label>Inform URL</Label>
-            <Input
-              value={informUrl}
-              onChange={(e) => setInformUrl(e.target.value)}
-              placeholder="https://192.168.1.1:443"
-              spellCheck={false}
-            />
-          </div>
-          <div>
-            <Label>API URL</Label>
-            <Input
-              value={apiUrl}
-              onChange={(e) => setApiUrl(e.target.value)}
-              placeholder="https://192.168.1.1:443"
-              spellCheck={false}
-            />
-            <p className="mt-1 text-xs text-slate-500">
-              Base URL for the login endpoint — usually the same host as the inform URL, no
-              trailing <span className="font-mono">/api</span> suffix.
-            </p>
-          </div>
-          <label className="flex items-start gap-2 text-sm text-slate-300">
-            <input
-              type="checkbox"
-              className="mt-0.5 h-4 w-4 rounded border-slate-700 bg-slate-900"
-              checked={verifyTls}
-              onChange={(e) => setVerifyTls(e.target.checked)}
-            />
-            <div>
-              <span>Verify TLS</span>
-              <span className="ml-2 text-xs text-slate-500">
-                Uncheck for self-signed certs (most lab UDMs).
-              </span>
-            </div>
-          </label>
+          {kind !== "virtual" && (
+            <>
+              <div>
+                <Label>Inform URL</Label>
+                <Input
+                  value={informUrl}
+                  onChange={(e) => setInformUrl(e.target.value)}
+                  placeholder="https://192.168.1.1:443"
+                  spellCheck={false}
+                />
+              </div>
+              <div>
+                <Label>API URL</Label>
+                <Input
+                  value={apiUrl}
+                  onChange={(e) => setApiUrl(e.target.value)}
+                  placeholder="https://192.168.1.1:443"
+                  spellCheck={false}
+                />
+                <p className="mt-1 text-xs text-slate-500">
+                  Base URL for the login endpoint — usually the same host as the inform URL, no
+                  trailing <span className="font-mono">/api</span> suffix.
+                </p>
+              </div>
+              <label className="flex items-start gap-2 text-sm text-slate-300">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 h-4 w-4 rounded border-slate-700 bg-slate-900"
+                  checked={verifyTls}
+                  onChange={(e) => setVerifyTls(e.target.checked)}
+                />
+                <div>
+                  <span>Verify TLS</span>
+                  <span className="ml-2 text-xs text-slate-500">
+                    Uncheck for self-signed certs (most lab UDMs).
+                  </span>
+                </div>
+              </label>
+            </>
+          )}
           {err && <p className="text-sm text-red-400">{err}</p>}
           <div className="mt-2 flex justify-end gap-2">
             <Button type="button" variant="ghost" size="sm" onClick={onClose}>

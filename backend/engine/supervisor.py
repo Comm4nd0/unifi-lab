@@ -343,6 +343,16 @@ class Supervisor:
             )
             return
 
+        # Virtual controllers handle adoption via the inform endpoint — the
+        # first inform POST triggers adopt automatically, so skip the real
+        # controller API call.
+        if ctrl.kind == "virtual":
+            log.info(
+                "auto_adopt.virtual_skip",
+                extra={"device_id": device_id, "mac": mac},
+            )
+            return
+
         backoff = AUTO_ADOPT_INITIAL_BACKOFF_S
         for attempt in range(1, AUTO_ADOPT_MAX_ATTEMPTS + 1):
             try:

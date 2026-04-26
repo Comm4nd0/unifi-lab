@@ -1,19 +1,25 @@
 from __future__ import annotations
 
+import json
 import logging
 import socket
 import time
+import uuid
 from typing import Any
 from urllib.parse import urlparse
 
 from asgiref.sync import async_to_sync
+from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
 from rest_framework.response import Response
 
 from engine.clients.unifi import UnifiApiError, UosServerClient
+from engine.protocol.codec import decode_inform, encode_inform
+from engine.protocol.keys import DEFAULT_INFORM_KEY
 
 from .models import ControllerTarget
 from .serializers import ControllerSecretsSerializer, ControllerTargetSerializer
@@ -190,11 +196,50 @@ class ControllerTargetViewSet(viewsets.ModelViewSet):
     queryset = ControllerTarget.objects.all()
     serializer_class = ControllerTargetSerializer
 
+    def perform_create(self, serializer):  # type: ignore[no-untyped-def]
+        """Auto-populate inform/API URLs for virtual controllers."""
+        ctrl = serializer.save()
+        if ctrl.kind == ControllerTarget.KIND_VIRTUAL:
+            _auto_configure_virtual(ctrl, self.request)
+
+    def perform_update(self, serializer):  # type: ignore[no-untyped-def]
+        ctrl = serializer.save()
+        if ctrl.kind == ControllerTarget.KIND_VIRTUAL:
+            _auto_configure_virtual(ctrl, self.request)
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="inform",
+        authentication_classes=[],
+        permission_classes=[AllowAny],
+    )
+    def inform(self, request: Request, pk: str | None = None) -> HttpResponse:
+        """Virtual UDM — accepts TNBU inform frames and responds with commands.
+
+        Unauthenticated endpoint (the device uses the inform key, not JWT).
+        Only works for controllers with ``kind='virtual'``.
+        """
+        ctrl = self.get_object()
+        if ctrl.kind != ControllerTarget.KIND_VIRTUAL:
+            return HttpResponse(b"not a virtual controller", status=400)
+        return _handle_virtual_inform(ctrl, request)
+
     @action(detail=True, methods=["post"], url_path="health-check")
     def health_check(self, request: Request, pk: str | None = None) -> Response:
         ctrl = self.get_object()
         old_health = ctrl.health
-        health, steps = _probe_controller(ctrl)
+
+        # Virtual controllers are always healthy — no external probing needed.
+        if ctrl.kind == ControllerTarget.KIND_VIRTUAL:
+            health = ControllerTarget.HEALTH_OK
+            steps = [
+                _step(STEP_PARSE_URL, "ok", "virtual controller — local endpoint"),
+                _step(STEP_TCP_CONNECT, "ok", "built-in, no network needed"),
+                _step(STEP_API_LOGIN, "ok", "virtual — no credentials required"),
+            ]
+        else:
+            health, steps = _probe_controller(ctrl)
         ctrl.health = health
         ctrl.last_verified_at = timezone.now()
         ctrl.save(update_fields=["health", "last_verified_at"])
@@ -239,3 +284,96 @@ class ControllerTargetViewSet(viewsets.ModelViewSet):
             self.get_serializer(ctrl).data,
             status=status.HTTP_200_OK,
         )
+
+
+# --- Virtual UDM helpers --------------------------------------------------
+
+
+def _auto_configure_virtual(ctrl: ControllerTarget, request: Request) -> None:
+    """Set inform_url and api_url to point at this Django instance."""
+    base = request.build_absolute_uri("/").rstrip("/")
+    ctrl.inform_url = f"{base}/api/v1/controllers/{ctrl.id}/inform/"
+    ctrl.api_url = f"{base}/api/v1/controllers/{ctrl.id}/"
+    ctrl.health = ControllerTarget.HEALTH_OK
+    ctrl.last_verified_at = timezone.now()
+    ctrl.save(update_fields=["inform_url", "api_url", "health", "last_verified_at"])
+
+
+def _handle_virtual_inform(ctrl: ControllerTarget, request: Request) -> HttpResponse:
+    """Process an incoming TNBU inform frame for a virtual controller.
+
+    Decodes the frame, looks up the device by MAC, determines the right
+    command (adopt on first contact, noop for heartbeats), encodes a
+    response frame, and records the exchange. Returns binary TNBU.
+    """
+    from apps.devices.models import InformExchange, VirtualDevice
+
+    body = request.body
+    if not body:
+        return HttpResponse(b"empty body", status=400)
+
+    key = DEFAULT_INFORM_KEY
+
+    # Decode the incoming inform frame
+    try:
+        payload_in = decode_inform(body, key=key)
+    except Exception as exc:
+        log.warning("virtual_inform.decode_failed", extra={"error": str(exc)})
+        return HttpResponse(b"decode failed", status=400)
+
+    mac = str(payload_in.get("mac", "")).lower()
+    if not mac:
+        return HttpResponse(b"no mac in payload", status=400)
+
+    # Look up the device
+    device = VirtualDevice.objects.filter(mac_address__iexact=mac).first()
+    exchange_type = InformExchange.TYPE_HEARTBEAT
+
+    # Build the response — adopt if pending, noop otherwise
+    now_iso = timezone.now().isoformat()
+    if device and device.state == VirtualDevice.STATE_PENDING:
+        # First contact: adopt the device
+        response_payload: dict[str, Any] = {
+            "_type": "setparam",
+            "cmd": "set-default",
+            "server_time_in_utc": now_iso,
+            "mgmt_cfg": json.dumps({
+                "authkey": DEFAULT_INFORM_KEY.hex(),
+                "cfgversion": "virtual-001",
+                "selfrun_guest_mode": "off",
+            }),
+        }
+        exchange_type = InformExchange.TYPE_ADOPT
+        # Auto-adopt: flip to adopted
+        device.state = VirtualDevice.STATE_ADOPTED
+        device.last_heartbeat_at = timezone.now()
+        device.save(update_fields=["state", "last_heartbeat_at", "updated_at"])
+    else:
+        response_payload = {
+            "_type": "noop",
+            "cmd": "noop",
+            "server_time_in_utc": now_iso,
+            "interval": 10,
+        }
+        if device:
+            device.last_heartbeat_at = timezone.now()
+            device.save(update_fields=["last_heartbeat_at", "updated_at"])
+
+    # Encode the response
+    mac_bytes = bytes.fromhex(mac.replace(":", ""))
+    response_frame = encode_inform(
+        payload=response_payload, key=key, mac=mac_bytes, use_gcm=True
+    )
+
+    # Record the exchange
+    if device:
+        InformExchange.objects.create(
+            id=uuid.uuid4(),
+            device=device,
+            exchange_type=exchange_type,
+            payload_in=payload_in,
+            payload_out=response_payload,
+            exchanged_at=timezone.now(),
+        )
+
+    return HttpResponse(response_frame, content_type="application/x-binary")
