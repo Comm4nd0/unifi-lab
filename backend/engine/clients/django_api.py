@@ -57,6 +57,17 @@ class DjangoApiClient:
             resp.raise_for_status()
             return resp.json()
 
+    async def update_device_heartbeat(self, device_id: str) -> dict[str, Any]:
+        """Notify Django that a device just sent a successful inform heartbeat."""
+        async with httpx.AsyncClient(verify=self.verify_tls, timeout=self.timeout) as client:
+            resp = await client.post(
+                f"{self.base_url}/api/v1/devices/{device_id}/heartbeat/",
+                headers={**self._headers(), "Content-Type": "application/json"},
+                json={},
+            )
+            resp.raise_for_status()
+            return resp.json()
+
     async def send_heartbeat(self, metadata: dict[str, Any] | None = None) -> dict[str, Any]:
         """Periodic signal that the asyncio worker process is alive.
 

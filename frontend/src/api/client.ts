@@ -452,6 +452,28 @@ export const endpoints = {
       return api.get<Paginated<AuditLog>>(`/api/v1/audit/${q ? `?${q}` : ""}`);
     },
   },
+  notifications: {
+    list: () =>
+      api.get<{
+        notifications: Array<{
+          id: string;
+          title: string;
+          message: string;
+          level: "info" | "success" | "warning" | "error";
+          target_type: string;
+          target_id: string;
+          read: boolean;
+          created_at: string;
+        }>;
+        unread_count: number;
+      }>("/api/v1/system/notifications/"),
+    markAllRead: () =>
+      api.post<{ marked: number }>("/api/v1/system/notifications/", { action: "mark_all_read" }),
+    dismiss: (id: string) =>
+      api.post<{ ok: boolean }>(`/api/v1/system/notifications/${id}/`, { action: "dismiss" }),
+    markRead: (id: string) =>
+      api.post<{ ok: boolean }>(`/api/v1/system/notifications/${id}/`, { action: "read" }),
+  },
   fleets: {
     list: () => api.get<Paginated<Fleet>>("/api/v1/fleets/"),
     get: (id: string) => api.get<Fleet>(`/api/v1/fleets/${id}/`),
@@ -468,5 +490,9 @@ export const endpoints = {
     resume: (id: string) => api.post<Fleet>(`/api/v1/fleets/${id}/resume/`),
     teardown: (id: string) => api.post<Fleet>(`/api/v1/fleets/${id}/teardown/`),
     delete: (id: string) => api.delete<void>(`/api/v1/fleets/${id}/`),
+    startTraffic: (id: string) =>
+      api.post<{ fleet: string; profiles_activated: number }>(`/api/v1/fleets/${id}/traffic/start/`),
+    stopTraffic: (id: string) =>
+      api.post<{ fleet: string; profiles_deactivated: number }>(`/api/v1/fleets/${id}/traffic/stop/`),
   },
 };

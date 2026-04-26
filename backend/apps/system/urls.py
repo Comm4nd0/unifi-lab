@@ -5,6 +5,8 @@ from django.urls import path
 from .views import (
     HealthView,
     MetricsView,
+    NotificationDetailView,
+    NotificationListView,
     ReadyzView,
     VersionView,
     WorkerHeartbeatView,
@@ -18,4 +20,10 @@ urlpatterns = [
     path("metrics/", MetricsView.as_view(), name="system-metrics"),
     path("worker-heartbeat/", WorkerHeartbeatView.as_view(), name="system-worker-heartbeat"),
     path("worker-status/", WorkerStatusView.as_view(), name="system-worker-status"),
+    path("notifications/", NotificationListView.as_view(), name="notifications"),
+    path(
+        "notifications/<str:notification_id>/",
+        NotificationDetailView.as_view(),
+        name="notification-detail",
+    ),
 ]

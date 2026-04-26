@@ -92,6 +92,27 @@ class VirtualDeviceViewSet(viewsets.ModelViewSet):
     @action(
         detail=True,
         methods=["post"],
+        authentication_classes=[],
+        permission_classes=[IsWorkerRequest],
+    )
+    def heartbeat(self, request: Request, pk: str | None = None) -> Response:
+        """Worker callback — updates last_heartbeat_at for this device.
+
+        Gated on the worker's shared bearer (``UVL_WORKER_TOKEN``) — no
+        user session or JWT required. Authentication classes are blanked
+        so DRF's JWTAuthentication doesn't try to parse the worker's
+        bearer as a JWT.
+        """
+        device = self.get_object()
+        device.last_heartbeat_at = timezone.now()
+        device.save(update_fields=["last_heartbeat_at", "updated_at"])
+        return Response(
+            {"device_id": str(device.id), "last_heartbeat_at": device.last_heartbeat_at.isoformat()}
+        )
+
+    @action(
+        detail=True,
+        methods=["post"],
         url_path="mark-adopted",
         authentication_classes=[],
         permission_classes=[IsWorkerRequest],

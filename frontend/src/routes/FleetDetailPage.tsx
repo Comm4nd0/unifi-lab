@@ -5,11 +5,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { endpoints } from "../api/client";
 import { useChannel } from "../api/ws";
 import { useConfirm } from "../components/ConfirmDialog";
+import { FlowRateChart } from "../components/FlowRateChart";
 import { useToast } from "../components/toast";
 import { TopologyGraph } from "../components/TopologyGraph";
 import { Button, Card, EmptyState, PageHeader, StateChip } from "../components/ui";
 
-type Tab = "overview" | "topology" | "devices";
+type Tab = "overview" | "topology" | "devices" | "traffic";
 
 const READY_STATES = new Set(["adopted", "heartbeat"]);
 
@@ -37,6 +38,13 @@ function ProgressBar({ percent }: { percent: number }) {
       </div>
     </div>
   );
+}
+
+function humanBytes(n: number): string {
+  if (n < 1_000) return `${n} B`;
+  if (n < 1_000_000) return `${(n / 1_000).toFixed(1)} KB`;
+  if (n < 1_000_000_000) return `${(n / 1_000_000).toFixed(1)} MB`;
+  return `${(n / 1_000_000_000).toFixed(2)} GB`;
 }
 
 export function FleetDetailPage() {
@@ -76,6 +84,13 @@ export function FleetDetailPage() {
     enabled: !!fleet.data?.blueprint,
   });
 
+  const trafficStats = useQuery({
+    queryKey: ["traffic", "flows", "stats", { fleet: id }],
+    queryFn: () =>
+      endpoints.traffic.stats({ fleet: id, window_minutes: 60, bucket_seconds: 60 }),
+    refetchInterval: 5_000,
+  });
+
   const pause = useMutation({
     mutationFn: () => endpoints.fleets.pause(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["fleets", id] }),
@@ -92,6 +107,16 @@ export function FleetDetailPage() {
       navigate({ to: "/fleets", search: { blueprint: undefined } });
     },
     onError: (err) => toast.error(`Tear-down failed: ${(err as Error).message}`),
+  });
+  const startTraffic = useMutation({
+    mutationFn: () => endpoints.fleets.startTraffic(id),
+    onSuccess: () => toast.success("Traffic profiles activated"),
+    onError: (err) => toast.error(`Start failed: ${(err as Error).message}`),
+  });
+  const stopTraffic = useMutation({
+    mutationFn: () => endpoints.fleets.stopTraffic(id),
+    onSuccess: () => toast.success("Traffic profiles deactivated"),
+    onError: (err) => toast.error(`Stop failed: ${(err as Error).message}`),
   });
 
   if (fleet.isLoading) return <p className="text-sm text-slate-500">Loading…</p>;
@@ -112,6 +137,7 @@ export function FleetDetailPage() {
     { id: "overview", label: "Overview" },
     { id: "topology", label: "Topology" },
     { id: "devices", label: `Devices (${related.length})` },
+    { id: "traffic", label: "Traffic" },
   ];
 
   return (
@@ -246,6 +272,40 @@ export function FleetDetailPage() {
               </ul>
             )}
           </Card>
+
+          {/* Live activity feed during deployment */}
+          {messages.length > 0 && (
+            <Card className="md:col-span-2">
+              <h3 className="text-sm font-medium uppercase tracking-wide text-slate-400">
+                Live activity
+              </h3>
+              <div className="mt-3 max-h-48 overflow-y-auto">
+                <ul className="space-y-1.5">
+                  {[...messages].reverse().slice(0, 20).map((msg, i) => (
+                    <li
+                      key={i}
+                      className="flex items-center gap-2 text-xs"
+                    >
+                      <span className="font-mono text-slate-600">
+                        {new Date(msg.ts).toLocaleTimeString()}
+                      </span>
+                      <StateChip state={msg.type.split(".").pop() || msg.type} />
+                      <span className="text-slate-400 truncate">
+                        {msg.data?.state
+                          ? `Fleet → ${msg.data.state}`
+                          : msg.data?.device_id
+                            ? `Device ${String(msg.data.device_id).slice(0, 8)}…`
+                            : JSON.stringify(msg.data).slice(0, 60)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <p className="mt-2 text-[10px] text-slate-600">
+                {messages.length} event{messages.length !== 1 ? "s" : ""} received
+              </p>
+            </Card>
+          )}
         </div>
       )}
 
@@ -319,6 +379,81 @@ export function FleetDetailPage() {
             </div>
           )}
         </section>
+      )}
+
+      {tab === "traffic" && (
+        <div className="grid gap-4">
+          <Card>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-sm font-medium uppercase tracking-wide text-slate-400">
+                  Flow rate — last hour
+                </h3>
+                {trafficStats.data ? (
+                  <p className="mt-1 text-xs text-slate-500">
+                    {trafficStats.data.totals.allowed.toLocaleString()} allowed ·{" "}
+                    {trafficStats.data.totals.blocked.toLocaleString()} blocked ·{" "}
+                    {humanBytes(trafficStats.data.totals.bytes_tx + trafficStats.data.totals.bytes_rx)} total
+                  </p>
+                ) : (
+                  <p className="mt-1 text-xs text-slate-500">Loading…</p>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => startTraffic.mutate()}
+                  disabled={startTraffic.isPending || stopTraffic.isPending}
+                >
+                  {startTraffic.isPending ? "Starting…" : "▶ Start traffic"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => stopTraffic.mutate()}
+                  disabled={startTraffic.isPending || stopTraffic.isPending}
+                >
+                  {stopTraffic.isPending ? "Stopping…" : "⏹ Stop traffic"}
+                </Button>
+              </div>
+            </div>
+            {trafficStats.data && (
+              <div className="mt-3">
+                <FlowRateChart stats={trafficStats.data} height={96} />
+              </div>
+            )}
+          </Card>
+
+          {trafficStats.data && (
+            <div className="grid gap-4 md:grid-cols-4">
+              <Card>
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Allowed</p>
+                <p className="mt-2 text-2xl font-semibold text-emerald-300">
+                  {trafficStats.data.totals.allowed.toLocaleString()}
+                </p>
+              </Card>
+              <Card>
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Blocked</p>
+                <p className="mt-2 text-2xl font-semibold text-rose-300">
+                  {trafficStats.data.totals.blocked.toLocaleString()}
+                </p>
+              </Card>
+              <Card>
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">TX</p>
+                <p className="mt-2 text-2xl font-semibold text-slate-100">
+                  {humanBytes(trafficStats.data.totals.bytes_tx)}
+                </p>
+              </Card>
+              <Card>
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">RX</p>
+                <p className="mt-2 text-2xl font-semibold text-slate-100">
+                  {humanBytes(trafficStats.data.totals.bytes_rx)}
+                </p>
+              </Card>
+            </div>
+          )}
+        </div>
       )}
     </>
   );

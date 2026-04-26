@@ -86,6 +86,17 @@ def instantiate_fleet(fleet: Fleet) -> list[str]:
         transition_fleet_to_active(str(fleet.id))
     else:
         transition_fleet_to_active.apply_async(args=[str(fleet.id)], countdown=countdown_s)
+
+    from apps.system.notifications import push as notify
+
+    notify(
+        title=f"Fleet “{fleet.name}” is ramping",
+        message=f"{len(device_ids)} devices being provisioned",
+        level="info",
+        target_type="fleet",
+        target_id=str(fleet.id),
+    )
+
     return device_ids
 
 
@@ -131,6 +142,17 @@ def pause(fleet: Fleet) -> Fleet:
     for device in fleet.devices.all():
         publish_worker_command(CHANNEL_DEVICES, action="despawn", device_id=str(device.id))
     _emit_state(fleet)
+
+    from apps.system.notifications import push as notify
+
+    notify(
+        title=f"Fleet “{fleet.name}” paused",
+        message=f"{fleet.device_count} devices despawned",
+        level="warning",
+        target_type="fleet",
+        target_id=str(fleet.id),
+    )
+
     return fleet
 
 
@@ -140,6 +162,17 @@ def resume(fleet: Fleet) -> Fleet:
     for device in fleet.devices.all():
         publish_worker_command(CHANNEL_DEVICES, action="spawn", device_id=str(device.id))
     _emit_state(fleet)
+
+    from apps.system.notifications import push as notify
+
+    notify(
+        title=f"Fleet “{fleet.name}” resumed",
+        message=f"{fleet.device_count} devices respawned",
+        level="success",
+        target_type="fleet",
+        target_id=str(fleet.id),
+    )
+
     return fleet
 
 
@@ -154,4 +187,15 @@ def teardown(fleet: Fleet) -> Fleet:
     fleet.state = Fleet.STATE_DELETED
     fleet.save(update_fields=["state"])
     _emit_state(fleet)
+
+    from apps.system.notifications import push as notify
+
+    notify(
+        title=f"Fleet “{fleet.name}” torn down",
+        message=f"All {fleet.device_count} devices despawned",
+        level="error",
+        target_type="fleet",
+        target_id=str(fleet.id),
+    )
+
     return fleet

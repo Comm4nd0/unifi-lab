@@ -192,20 +192,62 @@ class Supervisor:
         log.info("supervisor.force_inform", extra={"device_id": device_id})
 
     async def _run_device(self, device_id: str, *, auto_adopt: bool = False) -> None:
-        """Phase 0 stub device loop for inform session.
+        """Run the inform session loop for a virtual device.
 
-        Once ``engine.protocol.codec`` is real, this opens the inform
-        session, waits for adoption, and maintains heartbeats. For now
-        the loop just logs ticks. Auto-adoption runs first and reaches
-        the real controller API — it doesn't need the inform codec.
+        After optional auto-adoption, enters the real TNBU inform loop:
+        build payload -> encode -> POST to controller -> decode response ->
+        record exchange -> sleep -> repeat.
         """
+        from .protocol.inform_session import InformSession
+
         log.info("device.loop.start", extra={"device_id": device_id, "auto_adopt": auto_adopt})
         if auto_adopt:
             await self._auto_adopt_device(device_id)
+
+        if self._sessionmaker is None:
+            log.warning("device.loop.no_sessionmaker", extra={"device_id": device_id})
+            return
+
+        session = InformSession(
+            device_id=device_id,
+            sessionmaker=self._sessionmaker,
+            django_client_factory=self.django_client_factory,
+            stop_event=self._stop,
+        )
+
+        consecutive_errors = 0
         try:
             while not self._stop.is_set():
-                await asyncio.sleep(10)
-                log.debug("device.loop.tick", extra={"device_id": device_id})
+                try:
+                    result = await session.run_once()
+                    if result == "error":
+                        consecutive_errors += 1
+                        if consecutive_errors >= 10:
+                            log.error(
+                                "device.loop.too_many_errors",
+                                extra={
+                                    "device_id": device_id,
+                                    "errors": consecutive_errors,
+                                },
+                            )
+                            # Back off significantly on repeated errors
+                            await asyncio.sleep(
+                                min(60, HEARTBEAT_INTERVAL_SECONDS * consecutive_errors)
+                            )
+                            continue
+                    else:
+                        consecutive_errors = 0
+                except Exception:
+                    log.exception(
+                        "device.loop.tick_failed",
+                        extra={"device_id": device_id},
+                    )
+                    consecutive_errors += 1
+
+                try:
+                    await asyncio.wait_for(self._stop.wait(), timeout=HEARTBEAT_INTERVAL_SECONDS)
+                except TimeoutError:
+                    continue
         except asyncio.CancelledError:
             log.info("device.loop.cancelled", extra={"device_id": device_id})
             raise

@@ -70,3 +70,8 @@ class ClusterConsumer(AsyncJsonWebsocketConsumer):
         """Forward every fleet event published to the cluster group."""
         payload = event.get("payload") or {}
         await self.send_json(payload)
+
+    async def notification_event(self, event: dict[str, Any]) -> None:
+        """Forward notification events to connected clients."""
+        payload = event.get("payload") or {}
+        await self.send_json(payload)

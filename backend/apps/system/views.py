@@ -1,4 +1,4 @@
-"""System endpoints — health, readiness, version, Prometheus metrics, worker heartbeat."""
+"""System endpoints — health, readiness, version, Prometheus metrics, worker heartbeat, notifications."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ from django.conf import settings
 from django.core.cache import cache
 from django.db import connection
 from django.http import HttpResponse
+from rest_framework import status, views
 from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -193,3 +194,45 @@ class MetricsView(APIView):
             f"uvl_inform_exchanges_total {InformExchange.objects.count()}",
         ]
         return HttpResponse("\n".join(lines) + "\n", content_type="text/plain; version=0.0.4")
+
+
+class NotificationListView(views.APIView):
+    """GET — list all notifications, POST — mark-all-read."""
+
+    def get(self, request: Request) -> Response:
+        from . import notifications
+
+        return Response({
+            "notifications": notifications.list_all(),
+            "unread_count": notifications.unread_count(),
+        })
+
+    def post(self, request: Request) -> Response:
+        from . import notifications
+
+        action = request.data.get("action", "mark_all_read")
+        if action == "mark_all_read":
+            count = notifications.mark_all_read()
+            return Response({"marked": count})
+        elif action == "clear_all":
+            notifications.clear_all()
+            return Response({"cleared": True})
+        return Response({"detail": f"Unknown action: {action}"}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class NotificationDetailView(views.APIView):
+    """POST — mark-read or dismiss a single notification."""
+
+    def post(self, request: Request, notification_id: str) -> Response:
+        from . import notifications
+
+        action = request.data.get("action", "read")
+        if action == "read":
+            found = notifications.mark_read(notification_id)
+        elif action == "dismiss":
+            found = notifications.dismiss(notification_id)
+        else:
+            return Response({"detail": f"Unknown action: {action}"}, status=status.HTTP_400_BAD_REQUEST)
+        if not found:
+            return Response({"detail": "Not found"}, status=status.HTTP_404_NOT_FOUND)
+        return Response({"ok": True})

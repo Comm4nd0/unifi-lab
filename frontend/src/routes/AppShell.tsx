@@ -3,6 +3,7 @@ import { Link, Outlet, useRouter } from "@tanstack/react-router";
 import { endpoints } from "../api/client";
 import { useAuth } from "../store/auth";
 import { CommandPalette } from "../components/CommandPalette";
+import { NotificationBell } from "../components/NotificationBell";
 import { Button } from "../components/ui";
 
 const NAV = [
@@ -77,6 +78,7 @@ export function AppShell() {
               <kbd className="font-mono">⌘</kbd>
               <kbd className="font-mono">K</kbd>
             </span>
+            <NotificationBell />
             {user && <span className="text-slate-400">{user.email}</span>}
             <Button variant="ghost" size="sm" onClick={logout}>
               Sign out

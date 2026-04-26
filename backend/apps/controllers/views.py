@@ -193,10 +193,33 @@ class ControllerTargetViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"], url_path="health-check")
     def health_check(self, request: Request, pk: str | None = None) -> Response:
         ctrl = self.get_object()
+        old_health = ctrl.health
         health, steps = _probe_controller(ctrl)
         ctrl.health = health
         ctrl.last_verified_at = timezone.now()
         ctrl.save(update_fields=["health", "last_verified_at"])
+
+        # Notify on health transition
+        if health != old_health:
+            from apps.system.notifications import push as notify
+
+            if health == "ok":
+                notify(
+                    title=f"Controller “{ctrl.name}” is healthy",
+                    message="All health check steps passed",
+                    level="success",
+                    target_type="controller",
+                    target_id=str(ctrl.id),
+                )
+            else:
+                notify(
+                    title=f"Controller “{ctrl.name}” is {health}",
+                    message=steps[-1].get("detail", "") if steps else "",
+                    level="warning" if health == "degraded" else "error",
+                    target_type="controller",
+                    target_id=str(ctrl.id),
+                )
+
         data = self.get_serializer(ctrl).data
         # ``steps`` is transient — not persisted, only echoed back to
         # the caller so the UI can show each stage. Keeps the Controller
