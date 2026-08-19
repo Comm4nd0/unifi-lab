@@ -113,6 +113,9 @@ class SimulationResult:
                     "poe_budget_w": spec.poe_budget_w,
                     "uplink_device_id": uplink[0],
                     "uplink_port_id": uplink[1],
+                    "uplink_kind": "internet"
+                    if spec.routing and uplink[0] is None and uplink[1]
+                    else ("device" if uplink[0] else "none"),
                     "stp": bridge.to_dict() if bridge else None,
                     "stp_enabled": device.stp_enabled,
                     "stp_priority": device.stp_priority,
@@ -234,6 +237,12 @@ class SimulationResult:
     # ---------------------------------------------------------------- helpers
     def _uplink_of(self, device_id: str) -> tuple[str | None, str | None]:
         """Which port faces the root bridge — that is the device's uplink."""
+        device = self.topology.devices[device_id]
+        if device.spec.routing:
+            # A gateway's uplink is the circuit, not another box on the LAN.
+            wan = next((p for p in device.ports if p.is_wan and p.enabled), None)
+            if wan is not None:
+                return None, wan.id
         bridge = self.stp.bridges.get(device_id)
         if bridge and bridge.root_port_id:
             peer = self.topology.peer_port(bridge.root_port_id)

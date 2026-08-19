@@ -139,6 +139,8 @@ def create_device(
     if model not in CATALOG:
         raise ValueError(f"{model!r} is not in the UniFi catalogue.")
     spec = CATALOG[model]
+    if not x and not y:
+        x, y = _free_position(site)
     device = Device.objects.create(
         site=site,
         model=model,
@@ -154,6 +156,24 @@ def create_device(
         [Port(device=device, index=port.index) for port in spec.ports]
     )
     return device
+
+
+#: Spacing used when auto-placing a device on the topology canvas.
+GRID_X, GRID_Y, GRID_COLUMNS = 300, 240, 4
+
+
+def _free_position(site: Site) -> tuple[float, float]:
+    """Drop a new device into the first empty slot on a loose grid."""
+    taken = {(round(d.x), round(d.y)) for d in site.devices.all()}
+    for slot in range(GRID_COLUMNS * 40):
+        x = (slot % GRID_COLUMNS) * GRID_X - (GRID_COLUMNS - 1) * GRID_X / 2
+        y = (slot // GRID_COLUMNS) * GRID_Y
+        if not any(
+            abs(x - used_x) < GRID_X / 2 and abs(y - used_y) < GRID_Y / 2
+            for used_x, used_y in taken
+        ):
+            return x, y
+    return 0.0, float(len(taken) * GRID_Y)
 
 
 def _unique_name(site: Site, base: str) -> str:

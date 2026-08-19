@@ -74,7 +74,12 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
-STATICFILES_DIRS = [p for p in [BASE_DIR / "web"] if p.exists()]
+
+# The built console lands in backend/web. WhiteNoise serves that directory at
+# the site root so /assets/... resolves before the SPA catch-all route.
+WHITENOISE_ROOT = BASE_DIR / "web"
+WHITENOISE_INDEX_FILE = True
+WHITENOISE_AUTOREFRESH = DEBUG
 STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
     "staticfiles": {
