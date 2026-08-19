@@ -6,7 +6,14 @@ import { defineConfig } from "vite";
 export default defineConfig({
   plugins: [react()],
   resolve: {
-    alias: { "@": new URL("./src", import.meta.url).pathname },
+    // `.pathname` is percent-encoded and keeps a leading slash ahead of the
+    // drive letter on Windows, so decode it and drop that slash.
+    alias: {
+      "@": decodeURIComponent(new URL("./src", import.meta.url).pathname).replace(
+        /^\/(?=[A-Za-z]:)/,
+        "",
+      ),
+    },
   },
   build: {
     outDir: "../backend/web",
