@@ -1,0 +1,13 @@
+# Paste into ~/caddy/Caddyfile on Luma001. UVL owns port 8003.
+uvl.example.com {
+	encode zstd gzip
+
+	# The console is a single-page app; Django serves both it and the API.
+	reverse_proxy 172.17.0.1:8003 {
+		header_up X-Forwarded-Proto {scheme}
+	}
+
+	log {
+		output file /var/log/caddy/uvl.log
+	}
+}

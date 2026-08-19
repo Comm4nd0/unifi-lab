@@ -23,6 +23,7 @@ packages = ["simcore"]
 simcore = ["data/*.json"]
 
 [project.optional-dependencies]
+prod = ["gunicorn>=22.0"]
 dev = [
     "pytest>=8.0",
     "pytest-django>=4.8",

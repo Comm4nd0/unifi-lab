@@ -1,0 +1,33 @@
+# Single-container by default: SQLite on a volume is plenty for a lab.
+# Uncomment the postgres service to run the same stack on Postgres.
+services:
+  uvl:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "172.17.0.1:8003:8003"
+    environment:
+      UVL_DEBUG: "0"
+      UVL_SECRET_KEY: ${UVL_SECRET_KEY:-change-me}
+      UVL_ALLOWED_HOSTS: ${UVL_ALLOWED_HOSTS:-*}
+      UVL_DB_PATH: /data/uvl.sqlite3
+      # UVL_POSTGRES_HOST: postgres
+      # UVL_POSTGRES_PASSWORD: ${UVL_POSTGRES_PASSWORD}
+    volumes:
+      - uvl-data:/data
+    restart: unless-stopped
+
+  # postgres:
+  #   image: postgres:16-alpine
+  #   environment:
+  #     POSTGRES_DB: uvl
+  #     POSTGRES_USER: uvl
+  #     POSTGRES_PASSWORD: ${UVL_POSTGRES_PASSWORD:-uvl}
+  #   volumes:
+  #     - uvl-postgres:/var/lib/postgresql/data
+  #   restart: unless-stopped
+
+volumes:
+  uvl-data:
+  # uvl-postgres:

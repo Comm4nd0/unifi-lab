@@ -16,6 +16,18 @@ without touching real hardware.
 
 ---
 
+> ### Where the code is
+>
+> The project has been restarted around a self-contained simulator. Everything
+> current lives under [`vnet/`](vnet/) — a pure-python simulation engine, a
+> Django REST API and a UniFi-style web console. Start there:
+> **[vnet/README.md](vnet/README.md)**.
+>
+> The original `backend/` and `frontend/` trees (virtual devices adopted into a
+> real UniFi OS Server over the inform protocol) are kept for reference and are
+> no longer the active line of work. The notes below describe that earlier
+> design.
+
 ## What is this?
 
 UniFi Virtual Lab (UVL) is a self-hosted web application that lets you

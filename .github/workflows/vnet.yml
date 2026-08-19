@@ -1,0 +1,52 @@
+name: Virtual Lab
+
+on:
+  push:
+    branches: [main]
+    paths: ["vnet/**", ".github/workflows/vnet.yml"]
+  pull_request:
+    paths: ["vnet/**", ".github/workflows/vnet.yml"]
+
+jobs:
+  engine:
+    name: Engine and API
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: vnet/backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+      - name: Install dependencies
+        run: uv pip install --system -e ".[dev]"
+      - name: Lint
+        run: ruff check .
+      - name: Types
+        run: mypy simcore netsim
+      - name: Django checks
+        run: python manage.py check
+      - name: Tests
+        run: pytest -q
+
+  console:
+    name: Console
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: vnet/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: vnet/frontend/package-lock.json
+      - run: npm ci
+      - name: Types
+        run: npx tsc --noEmit
+      - name: Build
+        run: npm run build
