@@ -1,0 +1,492 @@
+{
+  "version": "2026.08.1",
+  "note": "Port layouts, PoE budgets and power draws are modelled on published UniFi datasheets. They are close enough for topology, STP and capacity simulation but are not a substitute for the official spec sheets.",
+  "models": [
+    {
+      "key": "udm-pro", "name": "Dream Machine Pro", "short": "UDM-Pro", "line": "gateway",
+      "family": "UniFi Dream Machine", "description": "1U rackmount gateway, 8-port GbE switch, 10G SFP+ WAN/LAN, NVR bay.",
+      "routing": true, "switching": true, "wireless": false, "stp_capable": true,
+      "powered_by": "ac", "power_draw_w": 33, "poe_budget_w": 0,
+      "switching_capacity_mbps": 20000, "wan_capacity_mbps": 3500,
+      "ports": [
+        {"count": 1, "start": 1, "label": "WAN", "media": "rj45", "speed_mbps": 1000, "role": "wan"},
+        {"count": 1, "start": 9, "label": "SFP+ WAN", "media": "sfp+", "speed_mbps": 10000, "role": "wan"},
+        {"count": 8, "start": 1, "label": "Port {n}", "media": "rj45", "speed_mbps": 1000, "role": "lan"},
+        {"count": 1, "start": 9, "label": "SFP+ {n}", "media": "sfp+", "speed_mbps": 10000, "role": "lan"}
+      ]
+    },
+    {
+      "key": "udm-pro-max", "name": "Dream Machine Pro Max", "short": "UDM-Pro-Max", "line": "gateway",
+      "family": "UniFi Dream Machine", "description": "Rackmount gateway with dual 10G SFP+ and 8-port GbE switching.",
+      "routing": true, "switching": true, "wireless": false, "stp_capable": true,
+      "powered_by": "ac", "power_draw_w": 40, "poe_budget_w": 0,
+      "switching_capacity_mbps": 20000, "wan_capacity_mbps": 5000,
+      "ports": [
+        {"count": 1, "start": 1, "label": "WAN", "media": "rj45", "speed_mbps": 2500, "role": "wan"},
+        {"count": 1, "start": 9, "label": "SFP+ WAN", "media": "sfp+", "speed_mbps": 10000, "role": "wan"},
+        {"count": 8, "start": 1, "label": "Port {n}", "media": "rj45", "speed_mbps": 1000, "role": "lan"},
+        {"count": 1, "start": 9, "label": "SFP+ {n}", "media": "sfp+", "speed_mbps": 10000, "role": "lan"}
+      ]
+    },
+    {
+      "key": "udm-se", "name": "Dream Machine SE", "short": "UDM-SE", "line": "gateway",
+      "family": "UniFi Dream Machine", "description": "Rackmount gateway with 8-port PoE switching and 2.5G WAN.",
+      "routing": true, "switching": true, "wireless": false, "stp_capable": true,
+      "powered_by": "ac", "power_draw_w": 45, "poe_budget_w": 145,
+      "switching_capacity_mbps": 20000, "wan_capacity_mbps": 3500,
+      "ports": [
+        {"count": 1, "start": 1, "label": "WAN", "media": "rj45", "speed_mbps": 2500, "role": "wan"},
+        {"count": 1, "start": 9, "label": "SFP+ WAN", "media": "sfp+", "speed_mbps": 10000, "role": "wan"},
+        {"count": 8, "start": 1, "label": "Port {n}", "media": "rj45", "speed_mbps": 1000, "role": "lan", "poe_out": "802.3at", "poe_max_w": 30},
+        {"count": 1, "start": 9, "label": "SFP+ {n}", "media": "sfp+", "speed_mbps": 10000, "role": "lan"}
+      ]
+    },
+    {
+      "key": "udm", "name": "Dream Machine", "short": "UDM", "line": "gateway",
+      "family": "UniFi Dream Machine", "description": "All-in-one gateway, 4-port switch and WiFi 5 access point.",
+      "routing": true, "switching": true, "wireless": true, "stp_capable": true,
+      "powered_by": "ac", "power_draw_w": 22, "poe_budget_w": 0,
+      "switching_capacity_mbps": 10000, "wan_capacity_mbps": 1000,
+      "wireless_capacity_mbps": 1700, "max_wireless_clients": 150,
+      "ports": [
+        {"count": 1, "start": 1, "label": "WAN", "media": "rj45", "speed_mbps": 1000, "role": "wan"},
+        {"count": 4, "start": 1, "label": "Port {n}", "media": "rj45", "speed_mbps": 1000, "role": "lan"}
+      ]
+    },
+    {
+      "key": "udr", "name": "Dream Router", "short": "UDR", "line": "gateway",
+      "family": "UniFi Dream Machine", "description": "Desktop gateway with WiFi 6 and two PoE output ports.",
+      "routing": true, "switching": true, "wireless": true, "stp_capable": true,
+      "powered_by": "ac", "power_draw_w": 20, "poe_budget_w": 26,
+      "switching_capacity_mbps": 5000, "wan_capacity_mbps": 1000,
+      "wireless_capacity_mbps": 3000, "max_wireless_clients": 200,
+      "ports": [
+        {"count": 1, "start": 1, "label": "WAN", "media": "rj45", "speed_mbps": 1000, "role": "wan"},
+        {"count": 2, "start": 1, "label": "Port {n}", "media": "rj45", "speed_mbps": 1000, "role": "lan"},
+        {"count": 2, "start": 3, "label": "Port {n}", "media": "rj45", "speed_mbps": 1000, "role": "lan", "poe_out": "802.3af", "poe_max_w": 15}
+      ]
+    },
+    {
+      "key": "ucg-ultra", "name": "Cloud Gateway Ultra", "short": "UCG-Ultra", "line": "gateway",
+      "family": "UniFi Cloud Gateway", "description": "Compact gateway, 1 Gbps routing with IDS/IPS, 4-port GbE switch.",
+      "routing": true, "switching": true, "wireless": false, "stp_capable": true,
+      "powered_by": "ac", "power_draw_w": 11, "poe_budget_w": 0,
+      "switching_capacity_mbps": 5000, "wan_capacity_mbps": 1000,
+      "ports": [
+        {"count": 1, "start": 1, "label": "WAN", "media": "rj45", "speed_mbps": 2500, "role": "wan"},
+        {"count": 4, "start": 1, "label": "Port {n}", "media": "rj45", "speed_mbps": 1000, "role": "lan"}
+      ]
+    },
+    {
+      "key": "ucg-max", "name": "Cloud Gateway Max", "short": "UCG-Max", "line": "gateway",
+      "family": "UniFi Cloud Gateway", "description": "2.5 GbE gateway with multi-gig LAN and PoE input.",
+      "routing": true, "switching": true, "wireless": false, "stp_capable": true,
+      "powered_by": "ac", "poe_in": "802.3at", "power_draw_w": 13, "poe_budget_w": 0,
+      "switching_capacity_mbps": 12500, "wan_capacity_mbps": 2500,
+      "ports": [
+        {"count": 1, "start": 1, "label": "WAN", "media": "rj45", "speed_mbps": 2500, "role": "wan"},
+        {"count": 4, "start": 1, "label": "Port {n}", "media": "rj45", "speed_mbps": 2500, "role": "lan"}
+      ]
+    },
+    {
+      "key": "ux", "name": "Express", "short": "UX", "line": "gateway",
+      "family": "UniFi Cloud Gateway", "description": "Pocket-sized gateway and WiFi 6 access point in one.",
+      "routing": true, "switching": true, "wireless": true, "stp_capable": true,
+      "powered_by": "ac", "power_draw_w": 12, "poe_budget_w": 0,
+      "switching_capacity_mbps": 2000, "wan_capacity_mbps": 1000,
+      "wireless_capacity_mbps": 1700, "max_wireless_clients": 60,
+      "ports": [
+        {"count": 1, "start": 1, "label": "WAN", "media": "rj45", "speed_mbps": 1000, "role": "wan"},
+        {"count": 1, "start": 1, "label": "LAN", "media": "rj45", "speed_mbps": 1000, "role": "lan"}
+      ]
+    },
+    {
+      "key": "uxg-lite", "name": "Gateway Lite", "short": "UXG-Lite", "line": "gateway",
+      "family": "UniFi Gateway", "description": "Entry-level routing appliance for an existing UniFi switch stack.",
+      "routing": true, "switching": false, "wireless": false, "stp_capable": true,
+      "powered_by": "ac", "power_draw_w": 7, "poe_budget_w": 0,
+      "switching_capacity_mbps": 2000, "wan_capacity_mbps": 1000,
+      "ports": [
+        {"count": 1, "start": 1, "label": "WAN", "media": "rj45", "speed_mbps": 1000, "role": "wan"},
+        {"count": 1, "start": 1, "label": "LAN", "media": "rj45", "speed_mbps": 1000, "role": "lan"}
+      ]
+    },
+    {
+      "key": "uxg-pro", "name": "Gateway Pro", "short": "UXG-Pro", "line": "gateway",
+      "family": "UniFi Gateway", "description": "Rackmount routing appliance with dual 10G SFP+ and dual GbE.",
+      "routing": true, "switching": false, "wireless": false, "stp_capable": true,
+      "powered_by": "ac", "power_draw_w": 30, "poe_budget_w": 0,
+      "switching_capacity_mbps": 20000, "wan_capacity_mbps": 3500,
+      "ports": [
+        {"count": 1, "start": 1, "label": "WAN", "media": "rj45", "speed_mbps": 1000, "role": "wan"},
+        {"count": 1, "start": 1, "label": "SFP+ WAN", "media": "sfp+", "speed_mbps": 10000, "role": "wan"},
+        {"count": 1, "start": 1, "label": "LAN", "media": "rj45", "speed_mbps": 1000, "role": "lan"},
+        {"count": 1, "start": 2, "label": "SFP+ LAN", "media": "sfp+", "speed_mbps": 10000, "role": "lan"}
+      ]
+    },
+    {
+      "key": "uxg-enterprise", "name": "Enterprise Gateway", "short": "EFG", "line": "gateway",
+      "family": "UniFi Gateway", "description": "High-throughput gateway with 10G SFP+ WAN and 2.5G LAN.",
+      "routing": true, "switching": true, "wireless": false, "stp_capable": true,
+      "powered_by": "ac", "power_draw_w": 60, "poe_budget_w": 0,
+      "switching_capacity_mbps": 40000, "wan_capacity_mbps": 10000,
+      "ports": [
+        {"count": 2, "start": 1, "label": "SFP+ WAN {n}", "media": "sfp+", "speed_mbps": 10000, "role": "wan"},
+        {"count": 8, "start": 1, "label": "Port {n}", "media": "rj45", "speed_mbps": 2500, "role": "lan"}
+      ]
+    },
+
+    {
+      "key": "usw-flex-mini", "name": "Switch Flex Mini", "short": "USW-Flex-Mini", "line": "switch",
+      "family": "UniFi Switch Flex", "description": "5-port GbE desktop switch, powered by PoE or USB-C.",
+      "routing": false, "switching": true, "wireless": false, "stp_capable": true,
+      "powered_by": "poe", "poe_in": "802.3af", "power_draw_w": 5, "poe_budget_w": 0,
+      "switching_capacity_mbps": 10000,
+      "ports": [
+        {"count": 1, "start": 1, "label": "Port 1", "media": "rj45", "speed_mbps": 1000, "role": "uplink", "poe_in": "802.3af"},
+        {"count": 4, "start": 2, "label": "Port {n}", "media": "rj45", "speed_mbps": 1000, "role": "lan"}
+      ]
+    },
+    {
+      "key": "usw-flex", "name": "Switch Flex", "short": "USW-Flex", "line": "switch",
+      "family": "UniFi Switch Flex", "description": "5-port GbE switch with 4 PoE outputs, powered by PoE++.",
+      "routing": false, "switching": true, "wireless": false, "stp_capable": true,
+      "powered_by": "poe", "poe_in": "802.3bt", "power_draw_w": 7, "poe_budget_w": 46,
+      "switching_capacity_mbps": 10000,
+      "ports": [
+        {"count": 1, "start": 1, "label": "Port 1", "media": "rj45", "speed_mbps": 1000, "role": "uplink", "poe_in": "802.3bt"},
+        {"count": 4, "start": 2, "label": "Port {n}", "media": "rj45", "speed_mbps": 1000, "role": "lan", "poe_out": "802.3af", "poe_max_w": 15}
+      ]
+    },
+    {
+      "key": "usw-ultra", "name": "Switch Ultra", "short": "USW-Ultra", "line": "switch",
+      "family": "UniFi Switch", "description": "8-port GbE switch with SFP+ uplink and 4 PoE outputs.",
+      "routing": false, "switching": true, "wireless": false, "stp_capable": true,
+      "powered_by": "ac", "poe_in": "802.3bt", "power_draw_w": 9, "poe_budget_w": 42,
+      "switching_capacity_mbps": 26000,
+      "ports": [
+        {"count": 1, "start": 1, "label": "Port 1", "media": "rj45", "speed_mbps": 1000, "role": "uplink", "poe_in": "802.3bt"},
+        {"count": 3, "start": 2, "label": "Port {n}", "media": "rj45", "speed_mbps": 1000, "role": "lan"},
+        {"count": 4, "start": 5, "label": "Port {n}", "media": "rj45", "speed_mbps": 1000, "role": "lan", "poe_out": "802.3at", "poe_max_w": 30},
+        {"count": 1, "start": 9, "label": "SFP+ {n}", "media": "sfp+", "speed_mbps": 10000, "role": "uplink"}
+      ]
+    },
+    {
+      "key": "usw-lite-8-poe", "name": "Switch Lite 8 PoE", "short": "USW-Lite-8-PoE", "line": "switch",
+      "family": "UniFi Switch Lite", "description": "8-port GbE switch with 4 PoE+ outputs.",
+      "routing": false, "switching": true, "wireless": false, "stp_capable": true,
+      "powered_by": "ac", "power_draw_w": 8, "poe_budget_w": 52,
+      "switching_capacity_mbps": 16000,
+      "ports": [
+        {"count": 4, "start": 1, "label": "Port {n}", "media": "rj45", "speed_mbps": 1000, "role": "lan"},
+        {"count": 4, "start": 5, "label": "Port {n}", "media": "rj45", "speed_mbps": 1000, "role": "lan", "poe_out": "802.3at", "poe_max_w": 30}
+      ]
+    },
+    {
+      "key": "usw-lite-16-poe", "name": "Switch Lite 16 PoE", "short": "USW-Lite-16-PoE", "line": "switch",
+      "family": "UniFi Switch Lite", "description": "16-port GbE switch with 8 PoE+ outputs.",
+      "routing": false, "switching": true, "wireless": false, "stp_capable": true,
+      "powered_by": "ac", "power_draw_w": 12, "poe_budget_w": 45,
+      "switching_capacity_mbps": 32000,
+      "ports": [
+        {"count": 8, "start": 1, "label": "Port {n}", "media": "rj45", "speed_mbps": 1000, "role": "lan"},
+        {"count": 8, "start": 9, "label": "Port {n}", "media": "rj45", "speed_mbps": 1000, "role": "lan", "poe_out": "802.3at", "poe_max_w": 30}
+      ]
+    },
+    {
+      "key": "usw-16-poe", "name": "Switch 16 PoE", "short": "USW-16-PoE", "line": "switch",
+      "family": "UniFi Switch", "description": "16-port GbE switch, 8 PoE+ outputs and 2 SFP uplinks.",
+      "routing": false, "switching": true, "wireless": false, "stp_capable": true,
+      "powered_by": "ac", "power_draw_w": 14, "poe_budget_w": 42,
+      "switching_capacity_mbps": 36000,
+      "ports": [
+        {"count": 8, "start": 1, "label": "Port {n}", "media": "rj45", "speed_mbps": 1000, "role": "lan", "poe_out": "802.3at", "poe_max_w": 30},
+        {"count": 8, "start": 9, "label": "Port {n}", "media": "rj45", "speed_mbps": 1000, "role": "lan"},
+        {"count": 2, "start": 17, "label": "SFP {n}", "media": "sfp", "speed_mbps": 1000, "role": "uplink"}
+      ]
+    },
+    {
+      "key": "usw-24-g2", "name": "Switch 24", "short": "USW-24", "line": "switch",
+      "family": "UniFi Switch", "description": "24-port GbE switch with 2 SFP uplinks, no PoE.",
+      "routing": false, "switching": true, "wireless": false, "stp_capable": true,
+      "powered_by": "ac", "power_draw_w": 18, "poe_budget_w": 0,
+      "switching_capacity_mbps": 52000,
+      "ports": [
+        {"count": 24, "start": 1, "label": "Port {n}", "media": "rj45", "speed_mbps": 1000, "role": "lan"},
+        {"count": 2, "start": 25, "label": "SFP {n}", "media": "sfp", "speed_mbps": 1000, "role": "uplink"}
+      ]
+    },
+    {
+      "key": "usw-24-poe", "name": "Switch 24 PoE", "short": "USW-24-PoE", "line": "switch",
+      "family": "UniFi Switch", "description": "24-port GbE switch, 16 PoE+ outputs and 2 SFP uplinks.",
+      "routing": false, "switching": true, "wireless": false, "stp_capable": true,
+      "powered_by": "ac", "power_draw_w": 22, "poe_budget_w": 95,
+      "switching_capacity_mbps": 52000,
+      "ports": [
+        {"count": 16, "start": 1, "label": "Port {n}", "media": "rj45", "speed_mbps": 1000, "role": "lan", "poe_out": "802.3at", "poe_max_w": 30},
+        {"count": 8, "start": 17, "label": "Port {n}", "media": "rj45", "speed_mbps": 1000, "role": "lan"},
+        {"count": 2, "start": 25, "label": "SFP {n}", "media": "sfp", "speed_mbps": 1000, "role": "uplink"}
+      ]
+    },
+    {
+      "key": "usw-48-poe", "name": "Switch 48 PoE", "short": "USW-48-PoE", "line": "switch",
+      "family": "UniFi Switch", "description": "48-port GbE switch, 32 PoE+ outputs and 4 SFP uplinks.",
+      "routing": false, "switching": true, "wireless": false, "stp_capable": true,
+      "powered_by": "ac", "power_draw_w": 40, "poe_budget_w": 195,
+      "switching_capacity_mbps": 104000,
+      "ports": [
+        {"count": 32, "start": 1, "label": "Port {n}", "media": "rj45", "speed_mbps": 1000, "role": "lan", "poe_out": "802.3at", "poe_max_w": 30},
+        {"count": 16, "start": 33, "label": "Port {n}", "media": "rj45", "speed_mbps": 1000, "role": "lan"},
+        {"count": 4, "start": 49, "label": "SFP {n}", "media": "sfp", "speed_mbps": 1000, "role": "uplink"}
+      ]
+    },
+    {
+      "key": "usw-pro-24", "name": "Switch Pro 24", "short": "USW-Pro-24", "line": "switch",
+      "family": "UniFi Switch Pro", "description": "Layer 3 24-port GbE switch with 2 SFP+ uplinks.",
+      "routing": false, "switching": true, "wireless": false, "stp_capable": true,
+      "powered_by": "ac", "power_draw_w": 25, "poe_budget_w": 0,
+      "switching_capacity_mbps": 88000,
+      "ports": [
+        {"count": 24, "start": 1, "label": "Port {n}", "media": "rj45", "speed_mbps": 1000, "role": "lan"},
+        {"count": 2, "start": 25, "label": "SFP+ {n}", "media": "sfp+", "speed_mbps": 10000, "role": "uplink"}
+      ]
+    },
+    {
+      "key": "usw-pro-24-poe", "name": "Switch Pro 24 PoE", "short": "USW-Pro-24-PoE", "line": "switch",
+      "family": "UniFi Switch Pro", "description": "Layer 3 24-port GbE switch, 8 PoE++ and 16 PoE+ outputs, 2 SFP+ uplinks.",
+      "routing": false, "switching": true, "wireless": false, "stp_capable": true,
+      "powered_by": "ac", "power_draw_w": 45, "poe_budget_w": 400,
+      "switching_capacity_mbps": 88000,
+      "ports": [
+        {"count": 16, "start": 1, "label": "Port {n}", "media": "rj45", "speed_mbps": 1000, "role": "lan", "poe_out": "802.3at", "poe_max_w": 30},
+        {"count": 8, "start": 17, "label": "Port {n}", "media": "rj45", "speed_mbps": 1000, "role": "lan", "poe_out": "802.3bt", "poe_max_w": 60},
+        {"count": 2, "start": 25, "label": "SFP+ {n}", "media": "sfp+", "speed_mbps": 10000, "role": "uplink"}
+      ]
+    },
+    {
+      "key": "usw-pro-48-poe", "name": "Switch Pro 48 PoE", "short": "USW-Pro-48-PoE", "line": "switch",
+      "family": "UniFi Switch Pro", "description": "Layer 3 48-port GbE switch, 16 PoE++ and 32 PoE+ outputs, 4 SFP+ uplinks.",
+      "routing": false, "switching": true, "wireless": false, "stp_capable": true,
+      "powered_by": "ac", "power_draw_w": 70, "poe_budget_w": 600,
+      "switching_capacity_mbps": 176000,
+      "ports": [
+        {"count": 32, "start": 1, "label": "Port {n}", "media": "rj45", "speed_mbps": 1000, "role": "lan", "poe_out": "802.3at", "poe_max_w": 30},
+        {"count": 16, "start": 33, "label": "Port {n}", "media": "rj45", "speed_mbps": 1000, "role": "lan", "poe_out": "802.3bt", "poe_max_w": 60},
+        {"count": 4, "start": 49, "label": "SFP+ {n}", "media": "sfp+", "speed_mbps": 10000, "role": "uplink"}
+      ]
+    },
+    {
+      "key": "usw-pro-max-16-poe", "name": "Switch Pro Max 16 PoE", "short": "USW-Pro-Max-16-PoE", "line": "switch",
+      "family": "UniFi Switch Pro Max", "description": "Etherlighting switch with 12 GbE PoE+ and 4 multi-gig PoE++ ports.",
+      "routing": false, "switching": true, "wireless": false, "stp_capable": true,
+      "powered_by": "ac", "power_draw_w": 30, "poe_budget_w": 180,
+      "switching_capacity_mbps": 76000,
+      "ports": [
+        {"count": 12, "start": 1, "label": "Port {n}", "media": "rj45", "speed_mbps": 1000, "role": "lan", "poe_out": "802.3at", "poe_max_w": 30},
+        {"count": 4, "start": 13, "label": "Port {n}", "media": "rj45", "speed_mbps": 2500, "role": "lan", "poe_out": "802.3bt", "poe_max_w": 60},
+        {"count": 2, "start": 17, "label": "SFP+ {n}", "media": "sfp+", "speed_mbps": 10000, "role": "uplink"}
+      ]
+    },
+    {
+      "key": "usw-pro-max-24-poe", "name": "Switch Pro Max 24 PoE", "short": "USW-Pro-Max-24-PoE", "line": "switch",
+      "family": "UniFi Switch Pro Max", "description": "Etherlighting switch with 16 GbE PoE+ and 8 multi-gig PoE++ ports.",
+      "routing": false, "switching": true, "wireless": false, "stp_capable": true,
+      "powered_by": "ac", "power_draw_w": 45, "poe_budget_w": 400,
+      "switching_capacity_mbps": 92000,
+      "ports": [
+        {"count": 16, "start": 1, "label": "Port {n}", "media": "rj45", "speed_mbps": 1000, "role": "lan", "poe_out": "802.3at", "poe_max_w": 30},
+        {"count": 8, "start": 17, "label": "Port {n}", "media": "rj45", "speed_mbps": 2500, "role": "lan", "poe_out": "802.3bt", "poe_max_w": 60},
+        {"count": 2, "start": 25, "label": "SFP+ {n}", "media": "sfp+", "speed_mbps": 10000, "role": "uplink"}
+      ]
+    },
+    {
+      "key": "usw-pro-max-48-poe", "name": "Switch Pro Max 48 PoE", "short": "USW-Pro-Max-48-PoE", "line": "switch",
+      "family": "UniFi Switch Pro Max", "description": "Etherlighting switch with 32 GbE PoE+ and 16 multi-gig PoE++ ports.",
+      "routing": false, "switching": true, "wireless": false, "stp_capable": true,
+      "powered_by": "ac", "power_draw_w": 80, "poe_budget_w": 720,
+      "switching_capacity_mbps": 184000,
+      "ports": [
+        {"count": 32, "start": 1, "label": "Port {n}", "media": "rj45", "speed_mbps": 1000, "role": "lan", "poe_out": "802.3at", "poe_max_w": 30},
+        {"count": 16, "start": 33, "label": "Port {n}", "media": "rj45", "speed_mbps": 2500, "role": "lan", "poe_out": "802.3bt", "poe_max_w": 60},
+        {"count": 4, "start": 49, "label": "SFP+ {n}", "media": "sfp+", "speed_mbps": 10000, "role": "uplink"}
+      ]
+    },
+    {
+      "key": "usw-enterprise-8-poe", "name": "Switch Enterprise 8 PoE", "short": "USW-Enterprise-8-PoE", "line": "switch",
+      "family": "UniFi Switch Enterprise", "description": "8-port 2.5 GbE PoE++ switch with 10G SFP+ uplink.",
+      "routing": false, "switching": true, "wireless": false, "stp_capable": true,
+      "powered_by": "ac", "power_draw_w": 20, "poe_budget_w": 120,
+      "switching_capacity_mbps": 50000,
+      "ports": [
+        {"count": 8, "start": 1, "label": "Port {n}", "media": "rj45", "speed_mbps": 2500, "role": "lan", "poe_out": "802.3bt", "poe_max_w": 60},
+        {"count": 1, "start": 9, "label": "SFP+ {n}", "media": "sfp+", "speed_mbps": 10000, "role": "uplink"}
+      ]
+    },
+    {
+      "key": "usw-enterprise-24-poe", "name": "Switch Enterprise 24 PoE", "short": "USW-Enterprise-24-PoE", "line": "switch",
+      "family": "UniFi Switch Enterprise", "description": "24-port 2.5 GbE PoE+ switch with dual 10G SFP+ uplinks.",
+      "routing": false, "switching": true, "wireless": false, "stp_capable": true,
+      "powered_by": "ac", "power_draw_w": 50, "poe_budget_w": 400,
+      "switching_capacity_mbps": 140000,
+      "ports": [
+        {"count": 24, "start": 1, "label": "Port {n}", "media": "rj45", "speed_mbps": 2500, "role": "lan", "poe_out": "802.3at", "poe_max_w": 30},
+        {"count": 2, "start": 25, "label": "SFP+ {n}", "media": "sfp+", "speed_mbps": 10000, "role": "uplink"}
+      ]
+    },
+    {
+      "key": "usw-aggregation", "name": "Switch Aggregation", "short": "USW-Aggregation", "line": "switch",
+      "family": "UniFi Switch Aggregation", "description": "8-port 10G SFP+ aggregation switch.",
+      "routing": false, "switching": true, "wireless": false, "stp_capable": true,
+      "powered_by": "ac", "power_draw_w": 18, "poe_budget_w": 0,
+      "switching_capacity_mbps": 160000,
+      "ports": [
+        {"count": 8, "start": 1, "label": "SFP+ {n}", "media": "sfp+", "speed_mbps": 10000, "role": "lan"}
+      ]
+    },
+    {
+      "key": "usw-pro-aggregation", "name": "Switch Pro Aggregation", "short": "USW-Pro-Aggregation", "line": "switch",
+      "family": "UniFi Switch Aggregation", "description": "28-port 10G SFP+ plus 4-port 25G SFP28 aggregation switch.",
+      "routing": false, "switching": true, "wireless": false, "stp_capable": true,
+      "powered_by": "ac", "power_draw_w": 75, "poe_budget_w": 0,
+      "switching_capacity_mbps": 760000,
+      "ports": [
+        {"count": 28, "start": 1, "label": "SFP+ {n}", "media": "sfp+", "speed_mbps": 10000, "role": "lan"},
+        {"count": 4, "start": 29, "label": "SFP28 {n}", "media": "sfp28", "speed_mbps": 25000, "role": "uplink"}
+      ]
+    },
+
+    {
+      "key": "u6-lite", "name": "U6 Lite", "short": "U6-Lite", "line": "ap",
+      "family": "UniFi WiFi 6", "description": "Compact 2x2 WiFi 6 access point.",
+      "routing": false, "switching": false, "wireless": true, "stp_capable": false,
+      "powered_by": "poe", "poe_in": "802.3af", "power_draw_w": 12, "poe_budget_w": 0,
+      "wireless_capacity_mbps": 1500, "max_wireless_clients": 150,
+      "ports": [{"count": 1, "start": 1, "label": "Uplink", "media": "rj45", "speed_mbps": 1000, "role": "uplink", "poe_in": "802.3af"}]
+    },
+    {
+      "key": "u6-plus", "name": "U6+", "short": "U6+", "line": "ap",
+      "family": "UniFi WiFi 6", "description": "Entry 2x2 WiFi 6 access point with 1.2 Gbps aggregate throughput.",
+      "routing": false, "switching": false, "wireless": true, "stp_capable": false,
+      "powered_by": "poe", "poe_in": "802.3af", "power_draw_w": 11, "poe_budget_w": 0,
+      "wireless_capacity_mbps": 1200, "max_wireless_clients": 150,
+      "ports": [{"count": 1, "start": 1, "label": "Uplink", "media": "rj45", "speed_mbps": 1000, "role": "uplink", "poe_in": "802.3af"}]
+    },
+    {
+      "key": "u6-pro", "name": "U6 Pro", "short": "U6-Pro", "line": "ap",
+      "family": "UniFi WiFi 6", "description": "4x4 WiFi 6 access point for medium density deployments.",
+      "routing": false, "switching": false, "wireless": true, "stp_capable": false,
+      "powered_by": "poe", "poe_in": "802.3af", "power_draw_w": 13, "poe_budget_w": 0,
+      "wireless_capacity_mbps": 4800, "max_wireless_clients": 300,
+      "ports": [{"count": 1, "start": 1, "label": "Uplink", "media": "rj45", "speed_mbps": 1000, "role": "uplink", "poe_in": "802.3af"}]
+    },
+    {
+      "key": "u6-lr", "name": "U6 Long-Range", "short": "U6-LR", "line": "ap",
+      "family": "UniFi WiFi 6", "description": "Long-range 4x4 WiFi 6 access point.",
+      "routing": false, "switching": false, "wireless": true, "stp_capable": false,
+      "powered_by": "poe", "poe_in": "802.3at", "power_draw_w": 16, "poe_budget_w": 0,
+      "wireless_capacity_mbps": 3000, "max_wireless_clients": 300,
+      "ports": [{"count": 1, "start": 1, "label": "Uplink", "media": "rj45", "speed_mbps": 1000, "role": "uplink", "poe_in": "802.3at"}]
+    },
+    {
+      "key": "u6-mesh", "name": "U6 Mesh", "short": "U6-Mesh", "line": "ap",
+      "family": "UniFi WiFi 6", "description": "Outdoor-rated WiFi 6 access point with wireless meshing.",
+      "routing": false, "switching": false, "wireless": true, "stp_capable": false,
+      "powered_by": "poe", "poe_in": "802.3af", "power_draw_w": 13, "poe_budget_w": 0,
+      "wireless_capacity_mbps": 3000, "max_wireless_clients": 250,
+      "ports": [{"count": 1, "start": 1, "label": "Uplink", "media": "rj45", "speed_mbps": 1000, "role": "uplink", "poe_in": "802.3af"}]
+    },
+    {
+      "key": "u6-enterprise", "name": "U6 Enterprise", "short": "U6-Enterprise", "line": "ap",
+      "family": "UniFi WiFi 6E", "description": "WiFi 6E tri-band access point with 2.5 GbE uplink.",
+      "routing": false, "switching": false, "wireless": true, "stp_capable": false,
+      "powered_by": "poe", "poe_in": "802.3at", "power_draw_w": 18, "poe_budget_w": 0,
+      "wireless_capacity_mbps": 10200, "max_wireless_clients": 600,
+      "ports": [{"count": 1, "start": 1, "label": "Uplink", "media": "rj45", "speed_mbps": 2500, "role": "uplink", "poe_in": "802.3at"}]
+    },
+    {
+      "key": "u6-iw", "name": "U6 In-Wall", "short": "U6-IW", "line": "ap",
+      "family": "UniFi WiFi 6", "description": "In-wall WiFi 6 access point with a 4-port downlink switch.",
+      "routing": false, "switching": true, "wireless": true, "stp_capable": true,
+      "powered_by": "poe", "poe_in": "802.3at", "power_draw_w": 13, "poe_budget_w": 15,
+      "wireless_capacity_mbps": 3000, "max_wireless_clients": 150,
+      "switching_capacity_mbps": 5000,
+      "ports": [
+        {"count": 1, "start": 1, "label": "Uplink", "media": "rj45", "speed_mbps": 1000, "role": "uplink", "poe_in": "802.3at"},
+        {"count": 3, "start": 1, "label": "Port {n}", "media": "rj45", "speed_mbps": 1000, "role": "lan"},
+        {"count": 1, "start": 4, "label": "Port {n}", "media": "rj45", "speed_mbps": 1000, "role": "lan", "poe_out": "802.3af", "poe_max_w": 15}
+      ]
+    },
+    {
+      "key": "u7-pro", "name": "U7 Pro", "short": "U7-Pro", "line": "ap",
+      "family": "UniFi WiFi 7", "description": "WiFi 7 tri-band access point with 2.5 GbE uplink.",
+      "routing": false, "switching": false, "wireless": true, "stp_capable": false,
+      "powered_by": "poe", "poe_in": "802.3at", "power_draw_w": 21, "poe_budget_w": 0,
+      "wireless_capacity_mbps": 9300, "max_wireless_clients": 300,
+      "ports": [{"count": 1, "start": 1, "label": "Uplink", "media": "rj45", "speed_mbps": 2500, "role": "uplink", "poe_in": "802.3at"}]
+    },
+    {
+      "key": "u7-pro-max", "name": "U7 Pro Max", "short": "U7-Pro-Max", "line": "ap",
+      "family": "UniFi WiFi 7", "description": "High-capacity WiFi 7 access point with 5 GbE uplink.",
+      "routing": false, "switching": false, "wireless": true, "stp_capable": false,
+      "powered_by": "poe", "poe_in": "802.3at", "power_draw_w": 25, "poe_budget_w": 0,
+      "wireless_capacity_mbps": 13000, "max_wireless_clients": 500,
+      "ports": [{"count": 1, "start": 1, "label": "Uplink", "media": "rj45", "speed_mbps": 5000, "role": "uplink", "poe_in": "802.3at"}]
+    },
+    {
+      "key": "u7-outdoor", "name": "U7 Outdoor", "short": "U7-Outdoor", "line": "ap",
+      "family": "UniFi WiFi 7", "description": "Weatherproof WiFi 7 access point for outdoor coverage.",
+      "routing": false, "switching": false, "wireless": true, "stp_capable": false,
+      "powered_by": "poe", "poe_in": "802.3at", "power_draw_w": 20, "poe_budget_w": 0,
+      "wireless_capacity_mbps": 6200, "max_wireless_clients": 300,
+      "ports": [{"count": 1, "start": 1, "label": "Uplink", "media": "rj45", "speed_mbps": 2500, "role": "uplink", "poe_in": "802.3at"}]
+    },
+    {
+      "key": "uap-ac-pro", "name": "UAP AC Pro", "short": "UAP-AC-Pro", "line": "ap",
+      "family": "UniFi WiFi 5", "description": "WiFi 5 access point with a secondary GbE passthrough port.",
+      "routing": false, "switching": false, "wireless": true, "stp_capable": false,
+      "powered_by": "poe", "poe_in": "802.3af", "power_draw_w": 9, "poe_budget_w": 0,
+      "wireless_capacity_mbps": 1750, "max_wireless_clients": 200,
+      "ports": [
+        {"count": 1, "start": 1, "label": "Uplink", "media": "rj45", "speed_mbps": 1000, "role": "uplink", "poe_in": "802.3af"},
+        {"count": 1, "start": 2, "label": "Secondary", "media": "rj45", "speed_mbps": 1000, "role": "lan"}
+      ]
+    },
+    {
+      "key": "uap-ac-lite", "name": "UAP AC Lite", "short": "UAP-AC-Lite", "line": "ap",
+      "family": "UniFi WiFi 5", "description": "Compact WiFi 5 access point.",
+      "routing": false, "switching": false, "wireless": true, "stp_capable": false,
+      "powered_by": "poe", "poe_in": "802.3af", "power_draw_w": 7, "poe_budget_w": 0,
+      "wireless_capacity_mbps": 1200, "max_wireless_clients": 120,
+      "ports": [{"count": 1, "start": 1, "label": "Uplink", "media": "rj45", "speed_mbps": 1000, "role": "uplink", "poe_in": "802.3af"}]
+    },
+
+    {
+      "key": "unvr", "name": "Network Video Recorder", "short": "UNVR", "line": "protect",
+      "family": "UniFi Protect", "description": "4-bay network video recorder for UniFi Protect cameras.",
+      "routing": false, "switching": false, "wireless": false, "stp_capable": false,
+      "powered_by": "ac", "power_draw_w": 40, "poe_budget_w": 0,
+      "ports": [{"count": 1, "start": 1, "label": "LAN", "media": "rj45", "speed_mbps": 1000, "role": "uplink"}]
+    },
+    {
+      "key": "g5-bullet", "name": "G5 Bullet", "short": "G5-Bullet", "line": "protect",
+      "family": "UniFi Protect", "description": "2K PoE bullet camera.",
+      "routing": false, "switching": false, "wireless": false, "stp_capable": false,
+      "powered_by": "poe", "poe_in": "802.3af", "power_draw_w": 7, "poe_budget_w": 0,
+      "ports": [{"count": 1, "start": 1, "label": "LAN", "media": "rj45", "speed_mbps": 1000, "role": "uplink", "poe_in": "802.3af"}]
+    },
+    {
+      "key": "g5-turret-ultra", "name": "G5 Turret Ultra", "short": "G5-Turret-Ultra", "line": "protect",
+      "family": "UniFi Protect", "description": "Compact 2K PoE turret camera.",
+      "routing": false, "switching": false, "wireless": false, "stp_capable": false,
+      "powered_by": "poe", "poe_in": "802.3af", "power_draw_w": 5, "poe_budget_w": 0,
+      "ports": [{"count": 1, "start": 1, "label": "LAN", "media": "rj45", "speed_mbps": 1000, "role": "uplink", "poe_in": "802.3af"}]
+    },
+    {
+      "key": "ua-hub", "name": "Access Hub", "short": "UA-Hub", "line": "other",
+      "family": "UniFi Access", "description": "Door access controller powered over PoE.",
+      "routing": false, "switching": false, "wireless": false, "stp_capable": false,
+      "powered_by": "poe", "poe_in": "802.3at", "power_draw_w": 15, "poe_budget_w": 0,
+      "ports": [{"count": 1, "start": 1, "label": "LAN", "media": "rj45", "speed_mbps": 1000, "role": "uplink", "poe_in": "802.3at"}]
+    }
+  ]
+}
