@@ -159,6 +159,8 @@ export function useSiteMutation<TArgs = void, TResult = unknown>(
   return useMutation<TResult, Error, TArgs>({
     mutationFn: fn,
     onSuccess: () => {
+      // The site list always moves; the per-site queries only when we have one.
+      queryClient.invalidateQueries({ queryKey: keys.sites });
       if (siteId === null) return;
       for (const key of [
         keys.simulation(siteId),
@@ -167,7 +169,6 @@ export function useSiteMutation<TArgs = void, TResult = unknown>(
         keys.clients(siteId),
         keys.flows(siteId),
         keys.networks(siteId),
-        keys.sites,
       ]) {
         queryClient.invalidateQueries({ queryKey: key });
       }
