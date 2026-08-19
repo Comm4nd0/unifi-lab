@@ -26,6 +26,17 @@ the result and lets you change it.
 Everything runs from one process on port 8003.
 
 ```bash
+cd vnet && ./run.sh
+```
+
+That builds the console, installs the backend, migrates, seeds an example site
+the first time, and serves. Open <http://localhost:8003>. The API is at
+`/api/`, the schema at `/api/schema/`, and Swagger UI at `/api/docs/`.
+
+`./run.sh --fresh` starts from an empty database; `./run.sh --api` skips the
+console build. Or do it by hand:
+
+```bash
 cd vnet/frontend && npm install && npm run build   # builds into ../backend/web
 cd ../backend
 uv venv && uv pip install -e ".[dev]"
@@ -33,9 +44,6 @@ uv run python manage.py migrate
 uv run python manage.py seed_demo                  # optional example site
 uv run python manage.py runserver 0.0.0.0:8003
 ```
-
-Open <http://localhost:8003>. The API is at `/api/`, the schema at
-`/api/schema/`, and Swagger UI at `/api/docs/`.
 
 For frontend work, run Vite separately — it proxies `/api` to port 8003:
 
