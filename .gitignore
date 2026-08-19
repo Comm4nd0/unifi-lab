@@ -78,3 +78,12 @@ mobile/pubspec.lock
 
 # Docs build
 docs/site/
+
+# UniFi Virtual Lab (vnet/)
+vnet/backend/.venv/
+vnet/backend/*.sqlite3
+vnet/backend/staticfiles/*
+!vnet/backend/staticfiles/.gitkeep
+vnet/backend/web/
+vnet/frontend/node_modules/
+vnet/frontend/dist/
